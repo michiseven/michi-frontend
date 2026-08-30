@@ -1,0 +1,40 @@
+{
+  "name": "michi-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.50",
+    "@ai-sdk/react": "^4.0.86",
+    "@logfriends/sdk": "https://github.com/michiseven/michi-packages/releases/download/log-friends-sdk-v1.0.5/logfriends-sdk-1.0.5.tgz",
+    "ai": "^7.0.83",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.1",
+    "jsdom": "27.2.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

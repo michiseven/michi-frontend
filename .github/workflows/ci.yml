@@ -18,14 +18,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Verify frontend when source is present
-        shell: bash
-        run: |
-          if [[ ! -f package.json ]]; then
-            echo "::warning::Frontend source has not been migrated yet; CI bootstrap only."
-            exit 0
-          fi
-          npm ci
-          npm run lint
-          npm test
-          npm run build
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
