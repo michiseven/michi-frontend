@@ -8,7 +8,10 @@ export async function registerFrontendWorker(): Promise<void> {
   registrationStarted = true;
 
   const ingestUrl = process.env.LOG_FRIENDS_INGEST_URL?.trim();
-  if (!ingestUrl) return;
+  if (!ingestUrl) {
+    console.warn("[Log Friends] Frontend worker registration skipped: LOG_FRIENDS_INGEST_URL is not configured.");
+    return;
+  }
 
   // Loading the browser event catalog registers its defineEvent schemas before reporting.
   void MichiEvents;
@@ -28,4 +31,5 @@ export async function registerFrontendWorker(): Promise<void> {
     appName: "michi",
     agentId: registration.agentId,
   });
+  console.info("[Log Friends] Frontend worker registered.");
 }
