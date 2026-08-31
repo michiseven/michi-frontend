@@ -13,7 +13,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.50",
     "@ai-sdk/react": "^4.0.86",
-    "@logfriends/sdk": "1.0.7",
+    "@logfriends/sdk": "^1.0.8",
     "ai": "^7.0.83",
     "next": "16.3.1",
     "react": "19.2.8",

@@ -163,6 +163,10 @@ export function getLogFriendsClient(): BrowserLogFriendsClient {
     workerId: 'michi-frontend',
     maxQueueSize: 200,
     batchSize: 20,
+    autoRegister: {
+      appName: 'michi',
+      metadata: { runtime: 'nextjs-browser' },
+    },
   });
 
   return browserClient;
