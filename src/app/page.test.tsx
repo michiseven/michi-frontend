@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateTrip } from "@/lib/api";
-import { captureMichiEvent, getLogFriendsClient } from "@/lib/telemetry";
+import { captureMichiEvent } from "@/lib/telemetry";
 import { I18nProvider, resetLanguage } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { testTrip } from "@/test/fixtures";
@@ -16,7 +16,6 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/lib/telemetry", () => ({
   captureMichiEvent: vi.fn(),
-  getLogFriendsClient: vi.fn(),
 }));
 
 function renderWithI18n(ui: React.ReactElement) {
@@ -34,7 +33,6 @@ describe("trip planner flow and i18n", () => {
   beforeEach(() => {
     vi.mocked(generateTrip).mockReset();
     vi.mocked(captureMichiEvent).mockReset();
-    vi.mocked(getLogFriendsClient).mockReset();
     Element.prototype.scrollIntoView = vi.fn();
     resetLanguage("ja");
   });

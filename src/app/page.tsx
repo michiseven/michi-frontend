@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { EnvironmentBanner } from "@/components/environment-banner";
 import { MapPinIcon } from "@/components/icons";
 import { PlannerForm } from "@/components/planner-form";
@@ -9,7 +9,7 @@ import { GenerativeChatPlanner } from "@/components/generative-chat-planner";
 import { TripView } from "@/components/trip-view";
 import { generateTrip } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { captureMichiEvent, getLogFriendsClient } from "@/lib/telemetry";
+import { captureMichiEvent } from "@/lib/telemetry";
 import type { GenerateTripInput, Trip } from "@/lib/types";
 
 export default function HomePage() {
@@ -18,10 +18,6 @@ export default function HomePage() {
   const [trip, setTrip] = useState<Trip>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    getLogFriendsClient();
-  }, []);
 
   async function handleSubmit(input: GenerateTripInput) {
     setLoading(true);
