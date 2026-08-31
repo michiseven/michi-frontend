@@ -25,11 +25,18 @@ export async function registerFrontendWorker(): Promise<void> {
     sourceType: "NODE",
     metadata: { runtime: "nextjs-server" },
   });
-  if (!registration.success || registration.agentId === undefined) return;
+  if (!registration.success || registration.agentId === undefined) {
+    console.warn("[Log Friends] Frontend worker registration failed.", registration.error);
+    return;
+  }
 
-  await reportDiscoveredEvents(client, {
+  const report = await reportDiscoveredEvents(client, {
     appName: "michi",
     agentId: registration.agentId,
   });
+  if (!report.success) {
+    console.warn("[Log Friends] Frontend event catalog registration failed.", report.error);
+    return;
+  }
   console.info("[Log Friends] Frontend worker registered.");
 }
