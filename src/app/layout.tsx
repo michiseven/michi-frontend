@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { I18nProvider } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { TelemetryBootstrap } from "@/components/telemetry-bootstrap";
 import { UserMenu } from "@/components/user-menu";
 import "./globals.css";
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ja">
       <body>
         <I18nProvider>
+          <TelemetryBootstrap />
           <a className="skip-link" href="#main-content">本文へ移動</a>
           <header className="site-header">
             <div className="header-inner">
