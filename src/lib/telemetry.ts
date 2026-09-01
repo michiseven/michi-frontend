@@ -174,7 +174,22 @@ export interface EventFields {
   tripId?: string;
   placeId?: string;
   context?: Record<string, unknown>;
+  /** Overrides the default UI branch when the same event can originate from multiple components. */
+  componentPath?: string[];
 }
+
+const defaultComponentPaths: Record<string, string[]> = {
+  tripRequested: ["HomePage", "PlannerForm"],
+  tripGenerated: ["HomePage", "PlannerForm"],
+  placeViewed: ["HomePage", "TripView", "TripTimeline", "PlaceCard"],
+  placeRemoved: ["HomePage", "TripView", "TripTimeline", "PlaceCard"],
+  placeReordered: ["HomePage", "TripView", "TripTimeline"],
+  chatMessageSent: ["HomePage", "GenerativeChatPlanner", "ChatComposer"],
+  tripModified: ["HomePage", "GenerativeChatPlanner", "TripEditDecision"],
+  routeStarted: ["HomePage", "TripView", "RouteControls"],
+  routeCompleted: ["HomePage", "TripView", "RouteControls"],
+  placeAdded: ["HomePage", "TripView", "TripTimeline", "PlaceCard"],
+};
 
 /**
  * 하위 호환성 텔레메트리 래퍼.
@@ -208,10 +223,17 @@ export function captureMichiEvent(
     if (fields.tripId !== undefined) payload.tripId = fields.tripId;
     if (fields.placeId !== undefined) payload.placeId = fields.placeId;
 
+    const componentPath = fields.componentPath ?? defaultComponentPaths[targetSchema?.name ?? eventName];
+    const trackOptions = componentPath ? { uiContext: { componentPath } } : undefined;
+
     if (targetSchema) {
-      trackEvent(client, targetSchema, payload);
+      if (trackOptions) {
+        trackEvent(client, targetSchema, payload, trackOptions);
+      } else {
+        trackEvent(client, targetSchema, payload);
+      }
     } else {
-      client.track(eventName, payload);
+      client.track(eventName, payload, trackOptions);
     }
   } catch {
     // Fail-safe: Telemetry failures never interrupt UI

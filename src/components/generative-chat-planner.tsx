@@ -189,6 +189,7 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
         }
         captureMichiEvent("trip_generated", {
           tripId: res.resultTrip.id,
+          componentPath: ["HomePage", "GenerativeChatPlanner", "ChatResponse"],
           context: {
             stopCount: res.resultTrip.stops?.length ?? 0,
             providerMode: res.resultTrip.providerModes?.place ?? "unknown",

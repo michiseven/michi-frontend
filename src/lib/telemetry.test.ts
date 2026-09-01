@@ -38,6 +38,7 @@ describe("Michi telemetry adapter with Log Friends SDK", () => {
       mockClient,
       MichiEvents.tripRequested,
       expect.objectContaining({ hasDate: true, hasBudget: true }),
+      { uiContext: { componentPath: ["HomePage", "PlannerForm"] } },
     );
     expect(MichiEvents.tripRequested.name).toBe("tripRequested");
   });
@@ -55,8 +56,29 @@ describe("Michi telemetry adapter with Log Friends SDK", () => {
       mockClient,
       MichiEvents.placeAdded,
       expect.objectContaining({ tripId: "trip-1", placeId: "place-1" }),
+      { uiContext: { componentPath: ["HomePage", "TripView", "TripTimeline", "PlaceCard"] } },
     );
     expect(MichiEvents.placeAdded.name).toBe("placeAdded");
+  });
+
+  it("allows a call site to override the default component branch", async () => {
+    const mockClient = { track: vi.fn(), flush: vi.fn(), identify: vi.fn() };
+    vi.mocked(logfriendsSdk.createBrowserClient).mockReturnValue(
+      mockClient as unknown as logfriendsSdk.BrowserLogFriendsClient,
+    );
+    const { captureMichiEvent, MichiEvents } = await import("./telemetry");
+
+    captureMichiEvent("trip_generated", {
+      tripId: "trip-1",
+      componentPath: ["HomePage", "GenerativeChatPlanner", "ChatResponse"],
+    });
+
+    expect(logfriendsSdk.trackEvent).toHaveBeenCalledWith(
+      mockClient,
+      MichiEvents.tripGenerated,
+      expect.objectContaining({ tripId: "trip-1" }),
+      { uiContext: { componentPath: ["HomePage", "GenerativeChatPlanner", "ChatResponse"] } },
+    );
   });
 
   it("swallows SDK errors and never crashes the caller", async () => {
