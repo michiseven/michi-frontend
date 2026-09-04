@@ -8,6 +8,7 @@ import { isAuthenticated, setAuthSession } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 
 const subscribeToHydration = () => () => {};
+const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
 
 export default function AuthPage() {
   const { t, lang } = useI18n();
@@ -126,7 +127,7 @@ export default function AuthPage() {
               <figure className="auth-preview-card auth-preview-planner">
                 <figcaption>{t.authStartChatCaptureLabel}</figcaption>
                 <Image
-                  src="/product-preview/chat-planner.png"
+                  src={`${basePath}/product-preview/chat-planner.png`}
                   alt={t.authStartChatCaptureAlt}
                   width={1280}
                   height={800}
@@ -137,7 +138,7 @@ export default function AuthPage() {
               <figure className="auth-preview-card auth-preview-result">
                 <figcaption>{t.authStartResultCaptureLabel}</figcaption>
                 <Image
-                  src="/product-preview/trip-result.png"
+                  src={`${basePath}/product-preview/trip-result.png`}
                   alt={t.authStartResultCaptureAlt}
                   width={1280}
                   height={800}
