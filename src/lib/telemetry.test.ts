@@ -38,7 +38,7 @@ describe("Michi telemetry adapter with Log Friends SDK", () => {
       mockClient,
       MichiEvents.tripRequested,
       expect.objectContaining({ hasDate: true, hasBudget: true }),
-      { uiContext: { componentPath: ["HomePage", "PlannerForm"] } },
+      { uiContext: { componentPath: ["HomePage", "GenerativeChatPlanner", "ChatComposer"] } },
     );
     expect(MichiEvents.tripRequested.name).toBe("tripRequested");
   });

@@ -86,6 +86,7 @@ export function HotelSearchModal({
   const [hasSearched, setHasSearched] = useState(false);
   const [activeHotelId, setActiveHotelId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchRequestRef = useRef(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -114,10 +115,12 @@ export function HotelSearchModal({
 
   async function executeSearch(searchTarget: string) {
     if (!searchTarget.trim()) return;
+    const requestId = ++searchRequestRef.current;
     setLoading(true);
     setHasSearched(true);
     try {
       const items = await searchHotels(searchTarget.trim());
+      if (requestId !== searchRequestRef.current) return;
       setResults(items);
       if (items.length > 0) {
         setActiveHotelId("hotel-0");
@@ -125,10 +128,11 @@ export function HotelSearchModal({
         setActiveHotelId(null);
       }
     } catch {
+      if (requestId !== searchRequestRef.current) return;
       setResults([]);
       setActiveHotelId(null);
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestRef.current) setLoading(false);
     }
   }
 

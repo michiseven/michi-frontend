@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logoutUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { AuthModal } from "./auth-modal";
 
 export function UserMenu() {
   const { t } = useI18n();
+  const pathname = usePathname();
   const user = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -41,6 +43,10 @@ export function UserMenu() {
   }
 
   if (!user) {
+    // /auth already provides the only login/register entry point. Showing a
+    // modal trigger here duplicates that flow and makes the page ambiguous.
+    if (pathname === "/auth") return null;
+
     return (
       <div className="user-nav-container">
         <button

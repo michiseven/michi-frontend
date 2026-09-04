@@ -5,9 +5,16 @@ import * as auth from "@/lib/auth";
 import { I18nProvider } from "@/lib/i18n";
 import { UserMenu } from "./user-menu";
 
+const pathnameMock = vi.hoisted(() => ({ value: "/" }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathnameMock.value,
+}));
+
 describe("UserMenu", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    pathnameMock.value = "/";
   });
 
   it("should show login button when user is not logged in", () => {
@@ -20,6 +27,19 @@ describe("UserMenu", () => {
     );
 
     expect(screen.getByRole("button", { name: "ログイン" })).toBeInTheDocument();
+  });
+
+  it("does not show a duplicate login modal trigger on the auth page", () => {
+    pathnameMock.value = "/auth";
+    vi.spyOn(auth, "useAuth").mockReturnValue(null);
+
+    render(
+      <I18nProvider>
+        <UserMenu />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole("button", { name: "ログイン" })).not.toBeInTheDocument();
   });
 
   it("should show user avatar badge and toggle dropdown menu when logged in", async () => {

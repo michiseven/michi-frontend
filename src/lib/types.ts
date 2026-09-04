@@ -321,7 +321,10 @@ export interface GenerateTripInput {
   budget?: number;
   startArea?: string;
   airport?: string;
+  arrivalAirport?: AirportCode;
+  departureAirport?: AirportCode;
   hotel?: string;
+  hotelSelection?: HotelSelection;
   locale?: "ja" | "ko";
 }
 
@@ -428,6 +431,14 @@ export interface SearchHotelItem {
   category: string | null;
   latitude: number | null;
   longitude: number | null;
+}
+
+export type AirportCode = "ICN_T1" | "ICN_T2" | "GMP_INTL" | "GMP_DOM";
+
+/** A hotel explicitly selected from search, distinct from a free-form hotel query. */
+export interface HotelSelection extends SearchHotelItem {
+  source?: string;
+  sourcePlaceId?: string;
 }
 
 export interface VerifiedPlaceFacts {

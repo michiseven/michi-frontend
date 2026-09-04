@@ -179,8 +179,8 @@ export interface EventFields {
 }
 
 const defaultComponentPaths: Record<string, string[]> = {
-  tripRequested: ["HomePage", "PlannerForm"],
-  tripGenerated: ["HomePage", "PlannerForm"],
+  tripRequested: ["HomePage", "GenerativeChatPlanner", "ChatComposer"],
+  tripGenerated: ["HomePage", "GenerativeChatPlanner", "ChatResponse"],
   placeViewed: ["HomePage", "TripView", "TripTimeline", "PlaceCard"],
   placeRemoved: ["HomePage", "TripView", "TripTimeline", "PlaceCard"],
   placeReordered: ["HomePage", "TripView", "TripTimeline"],

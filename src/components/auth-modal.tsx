@@ -11,6 +11,8 @@ import { CloseIcon } from "./icons";
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** 사용자가 명시적으로 모달을 닫았을 때만 호출한다. 로그인 실패에는 호출하지 않는다. */
+  onCancel?: () => void;
   onSuccess?: (user: User) => void;
   initialMode?: "login" | "register";
 }
@@ -22,6 +24,7 @@ function emptySubscribe() {
 export function AuthModal({
   isOpen,
   onClose,
+  onCancel,
   onSuccess,
   initialMode = "login",
 }: AuthModalProps) {
@@ -37,13 +40,21 @@ export function AuthModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onCancel?.();
+        onClose();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onCancel, onClose]);
 
   if (!isOpen || !mounted) return null;
+
+  function handleCancel() {
+    onCancel?.();
+    onClose();
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -91,7 +102,7 @@ export function AuthModal({
       aria-modal="true"
       aria-labelledby="auth-modal-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleCancel();
       }}
     >
       <div className="modal-content auth-modal-card">
@@ -102,7 +113,7 @@ export function AuthModal({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={handleCancel}
             aria-label="Close"
           >
             <CloseIcon />

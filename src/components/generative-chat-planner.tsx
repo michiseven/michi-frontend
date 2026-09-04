@@ -20,6 +20,7 @@ import type {
 import { GenerativeTripWidget } from "./generative-trip-widget";
 import { HotelSearchModal } from "./hotel-search-modal";
 import { captureMichiEvent } from "@/lib/telemetry";
+import { useAuth } from "@/lib/auth";
 
 export interface ChatMessage {
   id: string;
@@ -42,12 +43,22 @@ export interface TripProfile {
   /** 서울 출발일과 여행을 마쳐야 하는 시각. */
   departureDate?: string;
   departureTime?: string;
+  /** 입국·출국 공항 터미널. 일정이 입력된 방향에 대해서만 전송한다. */
+  arrivalAirport?: AirportCode;
+  departureAirport?: AirportCode;
   hotel?: SearchHotelItem;
   hasLuggage: boolean;
 }
 
+type AirportCode = "ICN_T1" | "ICN_T2" | "GMP_INTL" | "GMP_DOM";
+
 interface GenerativeChatPlannerProps {
   onTripGenerated?: (tripId: string) => void;
+  onLoginRequired?: () => void;
+  /** Home의 로그인 모달이 성공적으로 닫힌 뒤 직전 메시지를 한 번 재개한다. */
+  loginCompletedAt?: number;
+  /** 사용자가 로그인 모달을 취소하면 보류한 메시지를 폐기한다. */
+  loginCancelledAt?: number;
 }
 
 let idCounter = 0;
@@ -56,9 +67,11 @@ function generateMessageId(prefix: string): string {
   return `${prefix}-${idCounter}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlannerProps) {
+export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginCompletedAt, loginCancelledAt }: GenerativeChatPlannerProps) {
   const { lang } = useI18n();
+  const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pendingMessageAfterLoginRef = useRef<string | null>(null);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [threadSecret, setThreadSecret] = useState<string | null>(null);
@@ -93,6 +106,21 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // 로그인 전 작성한 요청을 버리지 않는다. AuthModal은 세션을 먼저 갱신하므로,
+  // user 변경 뒤 같은 메시지를 한 번만 이어서 보낸다.
+  useEffect(() => {
+    if (!loginCompletedAt || !user || isLoading || !pendingMessageAfterLoginRef.current) return;
+    const message = pendingMessageAfterLoginRef.current;
+    pendingMessageAfterLoginRef.current = null;
+    void sendMessage(message);
+  // loginCompletedAt은 AuthModal 성공이라는 외부 이벤트다. 메시지는 ref로 한 번만 소비한다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginCompletedAt, user, isLoading]);
+
+  useEffect(() => {
+    if (loginCancelledAt) pendingMessageAfterLoginRef.current = null;
+  }, [loginCancelledAt]);
+
   const quickPrompts =
     lang === "ko"
       ? [
@@ -118,6 +146,11 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
 
   async function sendMessage(textToSend: string) {
     if (!textToSend.trim() || isLoading) return;
+    if (!user) {
+      pendingMessageAfterLoginRef.current = textToSend;
+      onLoginRequired?.();
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: generateMessageId("user"),
@@ -132,6 +165,14 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
 
     try {
       const threadInfo = await getOrCreateThreadInfo();
+      const scheduleProfile = {
+        ...(profile.arrivalDate && profile.arrivalTime
+          ? { arrivalDate: profile.arrivalDate, arrivalTime: profile.arrivalTime, arrivalAirport: profile.arrivalAirport }
+          : {}),
+        ...(profile.departureDate && profile.departureTime
+          ? { departureDate: profile.departureDate, departureTime: profile.departureTime, departureAirport: profile.departureAirport }
+          : {}),
+      };
       const res = await sendChatMessage(threadInfo.threadId, {
         message: textToSend,
         locale: lang,
@@ -140,10 +181,7 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
           hotel: profile.hotel,
           partySize: profile.partySize,
           hasLuggage: profile.hasLuggage,
-          arrivalDate: profile.arrivalDate,
-          arrivalTime: profile.arrivalTime,
-          departureDate: profile.departureDate,
-          departureTime: profile.departureTime,
+          ...scheduleProfile,
         },
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
@@ -1054,6 +1092,20 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
                 />
               </label>
               <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
+                {lang === "ko" ? "입국 공항" : "到着空港"}
+                <select
+                  aria-label={lang === "ko" ? "입국 공항" : "到着空港"}
+                  value={profile.arrivalAirport ?? ""}
+                  onChange={(e) => setProfile({ ...profile, arrivalAirport: (e.target.value || undefined) as AirportCode | undefined })}
+                >
+                  <option value="">{lang === "ko" ? "선택 안 함" : "指定なし"}</option>
+                  <option value="ICN_T1">{lang === "ko" ? "인천공항 제1터미널" : "仁川国際空港 第1ターミナル"}</option>
+                  <option value="ICN_T2">{lang === "ko" ? "인천공항 제2터미널" : "仁川国際空港 第2ターミナル"}</option>
+                  <option value="GMP_INTL">{lang === "ko" ? "김포공항 국제선" : "金浦空港 国際線"}</option>
+                  <option value="GMP_DOM">{lang === "ko" ? "김포공항 국내선" : "金浦空港 国内線"}</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
                 {lang === "ko" ? "출국 날짜" : "出国日"}
                 <input
                   aria-label={lang === "ko" ? "출국 날짜" : "出国日"}
@@ -1072,12 +1124,26 @@ export function GenerativeChatPlanner({ onTripGenerated }: GenerativeChatPlanner
                   onChange={(e) => setProfile({ ...profile, departureTime: e.target.value })}
                 />
               </label>
+              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
+                {lang === "ko" ? "출국 공항" : "出発空港"}
+                <select
+                  aria-label={lang === "ko" ? "출국 공항" : "出発空港"}
+                  value={profile.departureAirport ?? ""}
+                  onChange={(e) => setProfile({ ...profile, departureAirport: (e.target.value || undefined) as AirportCode | undefined })}
+                >
+                  <option value="">{lang === "ko" ? "선택 안 함" : "指定なし"}</option>
+                  <option value="ICN_T1">{lang === "ko" ? "인천공항 제1터미널" : "仁川国際空港 第1ターミナル"}</option>
+                  <option value="ICN_T2">{lang === "ko" ? "인천공항 제2터미널" : "仁川国際空港 第2ターミナル"}</option>
+                  <option value="GMP_INTL">{lang === "ko" ? "김포공항 국제선" : "金浦空港 国際線"}</option>
+                  <option value="GMP_DOM">{lang === "ko" ? "김포공항 국내선" : "金浦空港 国内線"}</option>
+                </select>
+              </label>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "22px", gap: "12px" }}>
               <button
                 type="button"
-                onClick={() => setProfile({ ...profile, arrivalDate: undefined, arrivalTime: undefined, departureDate: undefined, departureTime: undefined })}
+                onClick={() => setProfile({ ...profile, arrivalDate: undefined, arrivalTime: undefined, arrivalAirport: undefined, departureDate: undefined, departureTime: undefined, departureAirport: undefined })}
                 style={{ border: 0, background: "transparent", color: "#64748b", cursor: "pointer", fontWeight: 700 }}
               >
                 {lang === "ko" ? "초기화" : "リセット"}
