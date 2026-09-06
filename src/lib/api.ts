@@ -326,8 +326,10 @@ export async function getStopAlternatives(
       ],
     };
   }
+  const editToken = getStoredEditToken(tripId);
   return requestJson<import("./types").StopAlternativesResponse>(
     `/trips/${encodeURIComponent(tripId)}/stops/${encodeURIComponent(stopId)}/alternatives`,
+    { headers: editToken ? { "x-edit-token": editToken } : undefined },
   );
 }
 

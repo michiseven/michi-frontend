@@ -244,6 +244,21 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 
 .timeline-connector { display: flex; align-items: center; margin: -4px 0 14px 76px; }
 .timeline-connector-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px dashed #abb3af; border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 700; }
+.airport-transfer-card { margin: 0 0 16px 76px; padding: 15px 16px; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 12px; background: #f8fbff; color: #1e3a5f; }
+.airport-transfer-heading { display: flex; align-items: center; gap: 9px; }
+.airport-transfer-icon { font-size: 1.25rem; }
+.airport-transfer-kicker { margin: 0 0 2px; color: #2563eb; font-size: .72rem; font-weight: 800; letter-spacing: .04em; }
+.airport-transfer-heading h3 { margin: 0; color: #1e3a5f; font-size: 1rem; }
+.airport-transfer-time { margin-left: auto; color: #1e3a5f; font-weight: 800; font-variant-numeric: tabular-nums; }
+.airport-transfer-airport { margin: 12px 0 2px; color: #172554; font-weight: 700; }
+.airport-transfer-address { margin: 0; color: #64748b; font-size: .82rem; }
+.airport-transfer-route { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 11px; font-size: .9rem; }
+.airport-transfer-route strong { width: 100%; color: #1e3a5f; }
+.airport-transfer-evidence { color: #64748b; font-size: .8rem; }
+.airport-transfer-unavailable, .airport-transfer-buffer, .airport-transfer-warning { margin: 10px 0 0; font-size: .87rem; line-height: 1.45; }
+.airport-transfer-unavailable, .airport-transfer-warning { color: #9a3412; }
+.airport-transfer-buffer { color: #14532d; }
+.legacy-airport-notice { margin: 0 0 16px 76px; color: #92400e; font-size: .88rem; line-height: 1.45; }
 
 .place-card { min-width: 0; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 4px 16px rgba(29,50,43,.05); }
 .place-image-wrap { position: relative; aspect-ratio: 16 / 7; overflow: hidden; border-radius: 7px 7px 0 0; background: var(--surface-subtle); }
@@ -379,6 +394,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
   .page-actions .button, .map-preview-heading .button { width: 100%; }
   .map-preview-heading { display: grid; align-items: stretch; }
   .timeline-item { grid-template-columns: 48px 14px minmax(0, 1fr); gap: 7px; }
+  .airport-transfer-card, .legacy-airport-notice { margin-left: 62px; }
   .timeline-time { font-size: 12px; }
   .place-body { padding: 15px; }
   .fact-list { grid-template-columns: 1fr; }
@@ -848,6 +864,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
   font-size: 13px;
   font-weight: 750;
 }
+.auth-start-disclosure { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
 .auth-start-actions { margin-top: 28px; }
 .auth-start-actions > .button { min-width: 220px; box-shadow: 0 10px 24px rgba(15, 98, 83, 0.2); }
@@ -914,6 +931,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 
 .auth-start-section { display: grid; gap: 16px; }
 .auth-start-section h2 { font-size: 20px; }
+.auth-start-examples-hint { margin: -8px 0 0; color: var(--muted); font-size: 14px; }
 
 .auth-start-example-grid {
   display: grid;
@@ -931,6 +949,8 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 
 .auth-start-example h3 { font-size: 16px; }
 .auth-start-example p, .auth-start-steps p { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.auth-start-example .link-button { min-height: 40px; margin-top: 12px; font-size: 14px; font-weight: 750; }
+.trip-share-pending { margin: 0; align-self: center; color: var(--muted); font-size: 13px; line-height: 1.4; }
 
 .auth-start-steps {
   display: grid;

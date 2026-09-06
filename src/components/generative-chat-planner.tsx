@@ -14,6 +14,7 @@ import type {
   PendingTripMutation,
   ReplacementCandidate,
   SearchHotelItem,
+  SafetyConstraint,
   Trip,
   VerifiedPlaceFacts,
 } from "@/lib/types";
@@ -21,6 +22,7 @@ import { GenerativeTripWidget } from "./generative-trip-widget";
 import { HotelSearchModal } from "./hotel-search-modal";
 import { captureMichiEvent } from "@/lib/telemetry";
 import { useAuth } from "@/lib/auth";
+import { getPlannerIntentPrompt, type PlannerIntentId } from "@/lib/planner-intents";
 
 export interface ChatMessage {
   id: string;
@@ -36,7 +38,13 @@ export interface ChatMessage {
 }
 
 export interface TripProfile {
-  partySize: "1" | "2" | "3+";
+  /** Exact count. The backend rejects values outside 1–50. */
+  partySize: number;
+  budget?: number;
+  budgetScope: "per_person" | "total";
+  companions?: "solo" | "couple" | "friends" | "family" | "with_children";
+  pace?: "relaxed" | "standard" | "packed";
+  safetyConstraints: SafetyConstraint[];
   /** 서울 도착일과 여행을 시작할 수 있는 시각. */
   arrivalDate?: string;
   arrivalTime?: string;
@@ -59,6 +67,8 @@ interface GenerativeChatPlannerProps {
   loginCompletedAt?: number;
   /** 사용자가 로그인 모달을 취소하면 보류한 메시지를 폐기한다. */
   loginCancelledAt?: number;
+  /** Static product-example id from /auth. This must never trigger a send by itself. */
+  initialIntent?: PlannerIntentId | null;
 }
 
 let idCounter = 0;
@@ -67,8 +77,8 @@ function generateMessageId(prefix: string): string {
   return `${prefix}-${idCounter}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginCompletedAt, loginCancelledAt }: GenerativeChatPlannerProps) {
-  const { lang } = useI18n();
+export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginCompletedAt, loginCancelledAt, initialIntent }: GenerativeChatPlannerProps) {
+  const { lang, t } = useI18n();
   const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingMessageAfterLoginRef = useRef<string | null>(null);
@@ -78,22 +88,22 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const [selectedAlternativeId, setSelectedAlternativeId] = useState<string | null>(null);
 
   const [profile, setProfile] = useState<TripProfile>({
-    partySize: "2",
+    partySize: 2,
+    budgetScope: "per_person",
+    safetyConstraints: [],
     hotel: undefined,
     hasLuggage: false,
   });
 
   const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
   const [isTravelScheduleOpen, setIsTravelScheduleOpen] = useState(false);
+  const [isTravelConditionsOpen, setIsTravelConditionsOpen] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome-message",
       role: "assistant",
-      content:
-        lang === "ko"
-          ? "안녕하세요! 서울 여행 전문 AI 플래너 Michi입니다. 🇰🇷✨\n원하시는 지역(성수, 홍대, 명동 등), 예산, 좋아하는 분위기나 음식을 자유롭게 말씀해 주세요! 위의 기본 설정(일정·인원·숙소 검색)을 맞추시면 더욱 정밀한 코스를 안내해 드립니다."
-          : "こんにちは！ソウル専門AIトラベルプランナーのMichiです。🇰🇷✨\n行きたいエリア（聖水、弘大、明洞など）、予算、好きな雰囲気や料理を自由にお話しください！上部の基本設定（日程・人数・宿泊先検索）を合わせると、よりぴったりのルートをご案内します。",
+      content: t.plannerWelcome,
     },
   ]);
   const [input, setInput] = useState("");
@@ -134,7 +144,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           "🏯 景福宮＆西村の韓屋村半日散歩ルート",
           "🛍️ 弘大＆延南洞のグルメ巡りとショッピング",
           "🍜 明洞餃子を食べて乙支路ヒップジロツアー",
-        ];
+      ];
+  const intentPrompt = initialIntent ? getPlannerIntentPrompt(initialIntent, lang) : null;
 
   async function getOrCreateThreadInfo(): Promise<{ threadId: string; threadSecret: string }> {
     if (threadId && threadSecret) return { threadId, threadSecret };
@@ -180,6 +191,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         profile: {
           hotel: profile.hotel,
           partySize: profile.partySize,
+          ...(profile.budget != null ? { budget: profile.budget, budgetScope: profile.budgetScope } : {}),
+          ...(profile.companions ? { companions: profile.companions } : {}),
+          ...(profile.pace ? { pace: profile.pace } : {}),
+          ...(profile.safetyConstraints.length > 0 ? { safetyConstraints: profile.safetyConstraints } : {}),
           hasLuggage: profile.hasLuggage,
           ...scheduleProfile,
         },
@@ -349,17 +364,38 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               padding: "10px 14px",
               backgroundColor: "#f8fafc",
               borderBottom: "1px solid #e2e8f0",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              overflowX: "auto",
-              whiteSpace: "nowrap",
+              display: "grid",
+              gap: "10px",
               fontSize: "0.82rem",
             }}
           >
-            <span style={{ fontWeight: 700, color: "#475569", display: "flex", alignItems: "center", gap: "4px" }}>
-              ⚙️ {lang === "ko" ? "여행 조건:" : "条件:"}
-            </span>
+            <button
+              type="button"
+              aria-expanded={isTravelConditionsOpen}
+              aria-label={isTravelConditionsOpen ? t.plannerTravelConditionsClose : t.plannerTravelConditionsOpen}
+              onClick={() => setIsTravelConditionsOpen((isOpen) => !isOpen)}
+              style={{
+                justifySelf: "start",
+                minHeight: "36px",
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#ffffff",
+                color: "#334155",
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {isTravelConditionsOpen ? "−" : "+"} {t.plannerTravelConditions}
+            </button>
+
+            {isTravelConditionsOpen && (
+              <>
+                <p style={{ margin: 0, color: "#64748b", fontSize: "0.78rem", lineHeight: 1.45 }}>
+                  {t.plannerTravelConditionsHelp}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", overflowX: "auto", whiteSpace: "nowrap" }}>
 
             <button
               type="button"
@@ -382,25 +418,33 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   : "入国・出国日程"}
             </button>
 
-            {/* Party Size Selector */}
-            <select
-              value={profile.partySize}
-              onChange={(e) => setProfile({ ...profile, partySize: e.target.value as TripProfile["partySize"] })}
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#334155", fontWeight: 600 }}>
+              <span>{t.plannerPartySize}</span>
+              <input
+                aria-label={t.plannerPartySize}
+                type="number"
+                min="1"
+                max="50"
+                inputMode="numeric"
+                value={profile.partySize}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (Number.isInteger(next) && next >= 1 && next <= 50) setProfile({ ...profile, partySize: next });
+                }}
               style={{
-                padding: "4px 8px",
+                width: "48px",
+                minHeight: "32px",
+                padding: "4px 6px",
                 borderRadius: "8px",
                 border: "1px solid #cbd5e1",
                 backgroundColor: "#ffffff",
                 fontSize: "0.8rem",
                 fontWeight: 600,
                 color: "#334155",
-                cursor: "pointer",
               }}
-            >
-              <option value="1">👤 {lang === "ko" ? "1인(혼자)" : "1人(ソロ)"}</option>
-              <option value="2">👥 {lang === "ko" ? "2인(커플·친구)" : "2人(ペア)"}</option>
-              <option value="3+">👨‍👩‍👧 {lang === "ko" ? "3인+(그룹)" : "3人+(グループ)"}</option>
-            </select>
+              />
+              <span>{t.plannerPeopleUnit}</span>
+            </label>
 
             {/* Hotel Search Button / Selected Pill */}
             {profile.hotel ? (
@@ -483,6 +527,98 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             >
               🧳 {profile.hasLuggage ? (lang === "ko" ? "짐 보관 필요" : "荷物預かり必要") : (lang === "ko" ? "짐 보관 없음" : "荷物なし")}
             </button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "8px", minWidth: "min(100%, 300px)" }}>
+                  <label style={{ display: "grid", gap: "4px", color: "#334155", fontWeight: 600 }}>
+                    <span>{t.plannerBudget}</span>
+                    <input
+                      aria-label={t.plannerBudget}
+                      type="number"
+                      min="0"
+                      step="1000"
+                      inputMode="numeric"
+                      value={profile.budget ?? ""}
+                      placeholder={t.plannerBudgetPlaceholder}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const next = Number(value);
+                        setProfile({ ...profile, budget: value === "" || !Number.isFinite(next) || next < 0 ? undefined : Math.round(next) });
+                      }}
+                      style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", fontSize: "0.82rem" }}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: "4px", color: "#334155", fontWeight: 600 }}>
+                    <span>{t.plannerBudgetScope}</span>
+                    <select
+                      aria-label={t.plannerBudgetScope}
+                      value={profile.budgetScope}
+                      onChange={(e) => setProfile({ ...profile, budgetScope: e.target.value as TripProfile["budgetScope"] })}
+                      style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", fontSize: "0.82rem", background: "#fff" }}
+                    >
+                      <option value="per_person">{t.plannerBudgetPerPerson}</option>
+                      <option value="total">{t.plannerBudgetTotal}</option>
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: "4px", color: "#334155", fontWeight: 600 }}>
+                    <span>{t.plannerCompanions}</span>
+                    <select
+                      aria-label={t.plannerCompanions}
+                      value={profile.companions ?? ""}
+                      onChange={(e) => setProfile({ ...profile, companions: (e.target.value || undefined) as TripProfile["companions"] })}
+                      style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", fontSize: "0.82rem", background: "#fff" }}
+                    >
+                      <option value="">{t.plannerNotSpecified}</option>
+                      <option value="solo">{t.plannerCompanionSolo}</option>
+                      <option value="couple">{t.plannerCompanionCouple}</option>
+                      <option value="friends">{t.plannerCompanionFriends}</option>
+                      <option value="family">{t.plannerCompanionFamily}</option>
+                      <option value="with_children">{t.plannerCompanionWithChildren}</option>
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: "4px", color: "#334155", fontWeight: 600 }}>
+                    <span>{t.plannerPace}</span>
+                    <select
+                      aria-label={t.plannerPace}
+                      value={profile.pace ?? ""}
+                      onChange={(e) => setProfile({ ...profile, pace: (e.target.value || undefined) as TripProfile["pace"] })}
+                      style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", fontSize: "0.82rem", background: "#fff" }}
+                    >
+                      <option value="">{t.plannerNotSpecified}</option>
+                      <option value="relaxed">{t.plannerPaceRelaxed}</option>
+                      <option value="standard">{t.plannerPaceStandard}</option>
+                      <option value="packed">{t.plannerPacePacked}</option>
+                    </select>
+                  </label>
+                  <fieldset style={{ gridColumn: "1 / -1", margin: 0, padding: "8px", border: "1px solid #cbd5e1", borderRadius: "8px" }}>
+                    <legend style={{ fontSize: "0.82rem", fontWeight: 700 }}>{lang === "ko" ? "안전·이동 조건" : "安全・移動条件"}</legend>
+                    <p style={{ margin: "0 0 6px", color: "#64748b", fontSize: "0.75rem" }}>
+                      {lang === "ko" ? "확인 가능한 장소 근거가 없으면 미확인으로 안내됩니다." : "施設ごとの根拠がない場合は未確認として案内します。"}
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                      {([
+                        ["food_allergy", lang === "ko" ? "식품 알레르기" : "食物アレルギー"],
+                        ["wheelchair", lang === "ko" ? "휠체어" : "車いす"],
+                        ["stroller", lang === "ko" ? "유모차" : "ベビーカー"],
+                        ["stairs_avoidance", lang === "ko" ? "계단 피하기" : "階段を避ける"],
+                      ] as Array<[SafetyConstraint, string]>).map(([value, label]) => (
+                        <label key={value} style={{ fontSize: "0.8rem" }}>
+                          <input
+                            type="checkbox"
+                            checked={profile.safetyConstraints.includes(value)}
+                            onChange={() => setProfile({
+                              ...profile,
+                              safetyConstraints: profile.safetyConstraints.includes(value)
+                                ? profile.safetyConstraints.filter((item) => item !== value)
+                                : [...profile.safetyConstraints, value],
+                            })}
+                          /> {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Chat Messages List */}
@@ -500,6 +636,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           >
             {messages.map((message) => {
               const isUser = message.role === "user";
+              // 첫 안내만 현재 locale에서 다시 읽는다. 시작 뒤의 대화는 사용자가 본 기록이므로 그대로 둔다.
+              const displayContent = message.id === "welcome-message" && messages.length === 1 ? t.plannerWelcome : message.content;
               const webEvidence = message.verifiedPlaceFacts?.webEvidence;
               const webSources = webEvidence
                 ? [
@@ -522,7 +660,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   }}
                 >
                   {/* Message Bubble */}
-                  {message.content && (
+                  {displayContent && (
                     <div
                       style={{
                         maxWidth: "88%",
@@ -539,7 +677,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                           : "0 2px 6px rgba(0, 0, 0, 0.04)",
                       }}
                     >
-                      {message.content}
+                      {displayContent}
                     </div>
                   )}
 
@@ -878,6 +1016,30 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             {/* Quick Suggestion Chips (Initial screen only) */}
             {messages.length === 1 && (
               <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                {intentPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => setInput(intentPrompt)}
+                    style={{ minHeight: "44px", borderRadius: "10px", border: "1px solid #0f766e", background: "#f0fdfa", color: "#115e59", padding: "9px 12px", textAlign: "left", cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
+                  >
+                    {lang === "ko" ? "선택한 예시를 입력창에 넣기" : "選んだ例を入力欄に入れる"}
+                  </button>
+                )}
+                <p
+                  style={{
+                    margin: 0,
+                    padding: "10px 12px",
+                    borderRadius: "12px",
+                    backgroundColor: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    color: "#065f46",
+                    fontSize: "0.84rem",
+                    fontWeight: 650,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t.plannerQuickStartHint}
+                </p>
                 <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#64748b" }}>
                   💡 {lang === "ko" ? "추천 질문 예시를 눌러보세요" : "おすすめの質問例をタップ"}
                 </span>

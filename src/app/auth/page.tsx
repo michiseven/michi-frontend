@@ -19,6 +19,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // Only a fixed preset id crosses the auth boundary. Never persist free-form planning text for guests.
+  const [selectedIntent, setSelectedIntent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +39,7 @@ export default function AuthPage() {
       if (view === "login") {
         const res = await loginUser({ email, password });
         setAuthSession(res);
-        router.replace("/");
+        router.replace(selectedIntent ? `/?intent=${encodeURIComponent(selectedIntent)}` : "/");
       } else {
         if (!displayName.trim()) {
           setError(t.authDisplayName + " is required");
@@ -56,7 +58,7 @@ export default function AuthPage() {
           locale: lang,
         });
         setAuthSession(res);
-        router.replace("/");
+        router.replace(selectedIntent ? `/?intent=${encodeURIComponent(selectedIntent)}` : "/");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
@@ -65,8 +67,9 @@ export default function AuthPage() {
     }
   }
 
-  function openForm(nextView: "login" | "register") {
+  function openForm(nextView: "login" | "register", intent?: string) {
     setView(nextView);
+    if (intent) setSelectedIntent(intent);
     setError(null);
   }
 
@@ -87,9 +90,9 @@ export default function AuthPage() {
 
   if (view === "start") {
     const examples = [
-      [t.authStartExampleOneTitle, t.authStartExampleOneDesc],
-      [t.authStartExampleTwoTitle, t.authStartExampleTwoDesc],
-      [t.authStartExampleThreeTitle, t.authStartExampleThreeDesc],
+      ["arrival_luggage", t.authStartExampleOneTitle, t.authStartExampleOneDesc],
+      ["low_walk", t.authStartExampleTwoTitle, t.authStartExampleTwoDesc],
+      ["short_indoor", t.authStartExampleThreeTitle, t.authStartExampleThreeDesc],
     ];
     const steps = [
       [t.authStartStepOneTitle, t.authStartStepOneDesc],
@@ -110,6 +113,7 @@ export default function AuthPage() {
                 <li>{t.authStartBadgeMinute}</li>
                 <li>{t.authStartBadgeSaveEdit}</li>
               </ul>
+              <p className="auth-start-disclosure">{t.authStartLanguageDisclosure}</p>
               <div className="auth-start-actions">
                 <button type="button" className="button button-primary" onClick={() => openForm("register")}>
                   {t.authStartRegisterCta}
@@ -151,11 +155,15 @@ export default function AuthPage() {
 
           <section className="auth-start-section" aria-labelledby="auth-examples-title">
             <h2 id="auth-examples-title">{t.authStartExamplesTitle}</h2>
+            <p className="auth-start-examples-hint">{t.authStartExamplesHint}</p>
             <div className="auth-start-example-grid">
-              {examples.map(([title, description]) => (
+              {examples.map(([intent, title, description]) => (
                 <article className="auth-start-example" key={title}>
                   <h3>{title}</h3>
                   <p>{description}</p>
+                  <button type="button" className="link-button" onClick={() => openForm("register", intent)}>
+                    {t.authStartExampleAction}
+                  </button>
                 </article>
               ))}
             </div>
@@ -234,7 +242,7 @@ export default function AuthPage() {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="例: たなか"
+                  placeholder={lang === "ko" ? "예: 민지" : "例: たなか"}
                   required
                   disabled={loading}
                 />

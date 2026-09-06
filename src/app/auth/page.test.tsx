@@ -52,9 +52,12 @@ describe("AuthPage", () => {
     renderPage();
 
     expect(screen.getByRole("heading", { level: 1, name: "好みからつくる、ソウルの一日" })).toBeInTheDocument();
-    expect(screen.getByText("聖水でカフェとゆっくり夕食")).toBeInTheDocument();
-    expect(screen.getByText("ご両親と歩くソウルの一日")).toBeInTheDocument();
-    expect(screen.getByText("雨の日の室内デート")).toBeInTheDocument();
+    expect(screen.getByText("空港到着後、荷物を預けて始める一日")).toBeInTheDocument();
+    expect(screen.getByText("ご両親と歩く、無理のないソウル")).toBeInTheDocument();
+    expect(screen.getByText("3時間で楽しむ、雨の日の室内コース")).toBeInTheDocument();
+    expect(screen.getByText("ログイン後は、こんな一文からすぐに相談を始められます。")).toBeInTheDocument();
+    expect(screen.getByText("対応言語：日本語・韓国語。メールでログインできます。")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "このテーマで始める" })).toHaveLength(3);
     expect(screen.getByText("過ごしたい一日を伝える")).toBeInTheDocument();
     expect(screen.getByText("候補と順番を受け取る")).toBeInTheDocument();
     expect(screen.getByText("保存して、あとから編集する")).toBeInTheDocument();
@@ -70,9 +73,10 @@ describe("AuthPage", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "내 취향으로 만드는 서울 하루" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "무료로 일정 만들기" })).toBeInTheDocument();
-    expect(screen.getByText("성수 카페와 여유로운 저녁")).toBeInTheDocument();
-    expect(screen.getByText("부모님과 걷는 서울 하루")).toBeInTheDocument();
-    expect(screen.getByText("비 오는 날 실내 데이트")).toBeInTheDocument();
+    expect(screen.getByText("공항 도착 후 짐 맡기고 시작하는 하루")).toBeInTheDocument();
+    expect(screen.getByText("부모님과 걷는, 무리 없는 서울 하루")).toBeInTheDocument();
+    expect(screen.getByText("3시간 안에 즐기는 비 오는 날 실내 코스")).toBeInTheDocument();
+    expect(screen.getByText("로그인 후에는 이런 한 문장으로 바로 상담을 시작할 수 있어요.")).toBeInTheDocument();
   });
 
   it("opens registration from the primary CTA and explains email use only there", async () => {
@@ -145,5 +149,19 @@ describe("AuthPage", () => {
     }));
     expect(authMock.setAuthSession).toHaveBeenCalledWith(authResponse);
     expect(routerMock.replace).toHaveBeenCalledWith("/");
+  });
+
+  it("hands off only the selected fixed example id after registration", async () => {
+    apiMock.registerUser.mockResolvedValue(authResponse);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getAllByRole("button", { name: "このテーマで始める" })[0]!);
+    await user.type(screen.getByLabelText("ニックネーム"), "田中");
+    await user.type(screen.getByLabelText("メールアドレス"), "michi@example.com");
+    await user.type(screen.getByLabelText("パスワード"), "password123");
+    await user.click(screen.getByRole("button", { name: "会員登録して旅程をつくる" }));
+
+    await waitFor(() => expect(routerMock.replace).toHaveBeenCalledWith("/?intent=arrival_luggage"));
   });
 });

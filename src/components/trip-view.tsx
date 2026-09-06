@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { patchTripStops, saveUserTrip } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -10,15 +10,16 @@ import { saveRecentTrip } from "@/lib/storage";
 import { captureMichiEvent } from "@/lib/telemetry";
 import type { Trip } from "@/lib/types";
 import { AuthModal } from "./auth-modal";
+import { AirportTransferCard } from "./airport-transfer-card";
 import { NaverMap } from "./naver-map";
 import { PlaceCard } from "./place-card";
 import { ProviderStatus } from "./provider-status";
+import { SafetyConstraintSummary } from "./safety-constraint-summary";
 import {
   BookmarkIcon,
   CheckIcon,
   MapIcon,
   RefreshIcon,
-  ShareIcon,
 } from "./icons";
 
 interface TripViewProps {
@@ -62,11 +63,16 @@ export function TripView({
   >("idle");
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
-  const [shareToast, setShareToast] = useState<string | null>(null);
   const [savingTrip, setSavingTrip] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  // Airport transfers are trip boundaries. Old saved trips may still contain
+  // airport stops, but they must never become ordinary venues in this view.
+  const airportTransfers = trip.airportTransfers ?? [];
+  const legacyAirportStops = trip.stops.filter((stop) => stop.stopType === "airport");
+  const regularStops = trip.stops.filter((stop) => stop.stopType !== "airport");
 
   useEffect(() => {
     if (trip?.id) {
@@ -88,7 +94,7 @@ export function TripView({
           trip.title ||
           (lang === "ko" ? "서울 하루 여행 일정" : "ソウル一日旅プラン"),
         travelDate: trip.date,
-        stopsCount: trip.stops.length,
+        stopsCount: regularStops.length,
         estimatedTotalCost: trip.estimatedTotalCost,
         tripSnapshot: trip,
       });
@@ -104,7 +110,7 @@ export function TripView({
   }
 
   const distinctDays = Array.from(
-    new Set(trip.stops.map((s) => s.dayNumber ?? 1)),
+    new Set(regularStops.map((s) => s.dayNumber ?? 1)),
   ).sort((a, b) => a - b);
   const [selectedDay, setSelectedDay] = useState<number | "all">(
     distinctDays.length > 1 ? 1 : "all",
@@ -112,26 +118,44 @@ export function TripView({
 
   const filteredStops =
     selectedDay === "all"
-      ? trip.stops
-      : trip.stops.filter((s) => (s.dayNumber ?? 1) === selectedDay);
+      ? regularStops
+      : regularStops.filter((s) => (s.dayNumber ?? 1) === selectedDay);
 
-  const mapStops = useMemo(
-    () =>
-      filteredStops.map((stop) => ({
-        id: stop.id,
-        placeName: localizePlaceName(stop.placeName, lang),
-        latitude: stop.latitude,
-        longitude: stop.longitude,
-      })),
-    [filteredStops, lang],
+  const selectedDayDate =
+    selectedDay === "all"
+      ? null
+      : regularStops.find((stop) => (stop.dayNumber ?? 1) === selectedDay)
+          ?.dayDate ?? null;
+  const filteredAirportTransfers =
+    selectedDay === "all"
+      ? airportTransfers
+      : airportTransfers.filter(
+          (transfer) =>
+            transfer.date === selectedDayDate ||
+            (!selectedDayDate && selectedDay === 1 && transfer.date === trip.date),
+        );
+  const arrivalTransfers = filteredAirportTransfers.filter(
+    (transfer) => transfer.role === "arrival",
   );
+  const departureTransfers = filteredAirportTransfers.filter(
+    (transfer) => transfer.role === "departure",
+  );
+
+  const mapStops = filteredStops.map((stop) => ({
+    id: stop.id,
+    placeName: localizePlaceName(stop.placeName, lang),
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+  }));
 
   const currency = new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "ja-JP");
 
-  const stopDates = trip.stops
+  const stopDates = regularStops
     .map((s) => s.dayDate)
     .filter((d): d is string => Boolean(d));
-  const allDates = Array.from(new Set([trip.date, ...stopDates]))
+  const allDates = Array.from(
+    new Set([trip.date, ...stopDates, ...airportTransfers.map((transfer) => transfer.date)]),
+  )
     .filter(Boolean)
     .sort();
   const dateDisplay =
@@ -139,7 +163,7 @@ export function TripView({
       ? `${allDates[0]} ~ ${allDates[allDates.length - 1]}`
       : allDates[0] || t.tripMetaDateUnspecified;
 
-  const dispersionScores = trip.stops
+  const dispersionScores = regularStops
     .map((s) => s.scoreBreakdown.tourismDispersion)
     .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
   const avgDispersion =
@@ -151,14 +175,14 @@ export function TripView({
         )
       : null;
 
-  const localCount = trip.stops.filter(
+  const localCount = regularStops.filter(
     (s) =>
       s.scoreBreakdown.localImpact != null &&
       s.scoreBreakdown.localImpact >= 0.8,
   ).length;
   const localShare =
-    trip.stops.length > 0 && localCount > 0
-      ? Math.round((localCount / trip.stops.length) * 100)
+    regularStops.length > 0 && localCount > 0
+      ? Math.round((localCount / regularStops.length) * 100)
       : null;
 
   // Timeline totals
@@ -242,7 +266,7 @@ export function TripView({
     setRouteStatus("started");
     captureMichiEvent("route_started", {
       tripId: trip.id,
-      context: { stopCount: trip.stops.length },
+              context: { stopCount: regularStops.length },
     });
   }
 
@@ -250,54 +274,8 @@ export function TripView({
     setRouteStatus("completed");
     captureMichiEvent("route_completed", {
       tripId: trip.id,
-      context: { stopCount: trip.stops.length },
+      context: { stopCount: regularStops.length },
     });
-  }
-
-  async function handleShare() {
-    const title =
-      trip.title ||
-      (lang === "ko" ? "서울 하루 여행 일정" : "ソウル一日旅プラン");
-    const text = t.tripShareText(title);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const isMichiPath =
-      typeof window !== "undefined" &&
-      window.location.pathname.startsWith("/michi");
-    const basePath = isMichiPath ? "/michi" : "";
-    const url = origin ? `${origin}${basePath}/trips/${trip.id}` : "";
-    const nav =
-      typeof window !== "undefined"
-        ? window.navigator
-        : typeof navigator !== "undefined"
-          ? navigator
-          : undefined;
-
-    let shared = false;
-    if (nav && typeof nav.share === "function") {
-      try {
-        await nav.share({ title: t.tripShareTitle(title), text, url });
-        shared = true;
-      } catch {
-        // User cancelled or share failed, fallback to clipboard
-      }
-    }
-
-    const clipboard =
-      nav?.clipboard ??
-      (typeof navigator !== "undefined" ? navigator.clipboard : undefined);
-    if (!shared && clipboard && typeof clipboard.writeText === "function") {
-      try {
-        await clipboard.writeText(url);
-        shared = true;
-      } catch {
-        // Ignore clipboard failure
-      }
-    }
-
-    if (shared) {
-      setShareToast(t.tripShareSuccess);
-      setTimeout(() => setShareToast(null), 3000);
-    }
   }
 
   function handleSelectStop(stopId: string) {
@@ -348,6 +326,8 @@ export function TripView({
         sources={trip.providerSources}
       />
 
+      <SafetyConstraintSummary trip={trip} />
+
       {trip.explanation && (
         <article
           className="trip-summary-card"
@@ -396,10 +376,10 @@ export function TripView({
             {t.tripDayTabAll}
           </button>
           {distinctDays.map((dayNum) => {
-            const firstStop = trip.stops.find(
+            const firstStop = regularStops.find(
               (s) => (s.dayNumber ?? 1) === dayNum,
             );
-            const count = trip.stops.filter(
+            const count = regularStops.filter(
               (s) => (s.dayNumber ?? 1) === dayNum,
             ).length;
             return (
@@ -418,7 +398,7 @@ export function TripView({
         </div>
       )}
 
-      {trip.stops.length > 0 && (
+      {(regularStops.length > 0 || airportTransfers.length > 0 || legacyAirportStops.length > 0) && (
         <div className="trip-toolbar">
           {editable && (
             <button
@@ -439,15 +419,7 @@ export function TripView({
               {t.tripBtnRecalculate}
             </button>
           )}
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={handleShare}
-            aria-label={t.tripBtnShare}
-          >
-            <ShareIcon />
-            {t.tripBtnShare}
-          </button>
+          <p className="trip-share-pending" role="status">{t.tripShareUnavailable}</p>
           <button
             className="button button-secondary"
             type="button"
@@ -507,12 +479,6 @@ export function TripView({
         </div>
       )}
 
-      {shareToast && (
-        <div className="share-toast" role="status">
-          ✓ {shareToast}
-        </div>
-      )}
-
       {saveError && (
         <div className="status-banner error" role="alert">
           <strong>{lang === "ko" ? "저장 실패" : "保存失敗"}</strong>
@@ -530,7 +496,7 @@ export function TripView({
         </div>
       )}
 
-      {trip.stops.length === 0 ? (
+      {regularStops.length === 0 && airportTransfers.length === 0 && legacyAirportStops.length === 0 ? (
         <div className="empty-state">
           <h2>{t.tripEmptyTitle}</h2>
           <p>{t.tripEmptyDesc}</p>
@@ -544,7 +510,7 @@ export function TripView({
         </div>
       ) : (
         <div className="trip-layout">
-          {showMap && (
+          {showMap && filteredStops.length > 0 && (
             <div className="map-panel">
               <NaverMap
                 stops={mapStops}
@@ -582,6 +548,16 @@ export function TripView({
               )}
             </div>
 
+            {arrivalTransfers.map((transfer) => (
+              <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
+            ))}
+            {legacyAirportStops.length > 0 && airportTransfers.length === 0 && (
+              <p className="legacy-airport-notice" role="status">
+                {lang === "ko"
+                  ? "이전 일정의 공항 정보는 이동 구간으로 표시할 수 없습니다. 공항 이동 시간은 직접 확인해 주세요."
+                  : "以前の旅程の空港情報は移動区間として表示できません。空港までの移動時間はご自身で確認してください。"}
+              </p>
+            )}
             <ol className="timeline" aria-label={t.tripTimelineLabel}>
               {filteredStops.map((stop, index) => {
                 const prevStop =
@@ -727,14 +703,14 @@ export function TripView({
                         stop={stop}
                         index={index}
                         count={filteredStops.length}
-                        editable={editable}
+                        editable={editable && legacyAirportStops.length === 0}
                         busy={busy}
                         isActive={activeStopId === stop.id}
                         tripId={trip.id}
                         onFocusCard={() => setActiveStopId(stop.id)}
                         onMove={move}
                         onRemove={(stopId) => {
-                          const removedStop = trip.stops.find(
+                          const removedStop = regularStops.find(
                             (candidate) => candidate.id === stopId,
                           );
                           const actionLabel =
@@ -779,6 +755,9 @@ export function TripView({
                 );
               })}
             </ol>
+            {departureTransfers.map((transfer) => (
+              <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
+            ))}
           </div>
         </div>
       )}

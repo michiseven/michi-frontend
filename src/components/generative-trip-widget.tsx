@@ -9,6 +9,8 @@ import type { Trip } from "@/lib/types";
 import { PlaceCard } from "./place-card";
 import { NaverMap } from "./naver-map";
 import { MapIcon } from "./icons";
+import { SafetyConstraintSummary } from "./safety-constraint-summary";
+import { AirportTransferCard } from "./airport-transfer-card";
 
 interface GenerativeTripWidgetProps {
   trip: Trip;
@@ -24,7 +26,22 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
   const [busy, setBusy] = useState(false);
 
   const trip = modifiedTrip && modifiedTrip.id === initialTrip.id ? modifiedTrip : initialTrip;
-  const stops = useMemo(() => trip.stops || [], [trip.stops]);
+  // Airports are boundaries and never candidates in the compact itinerary.
+  const legacyAirportStops = useMemo(
+    () => (trip.stops || []).filter((stop) => stop.stopType === "airport"),
+    [trip.stops],
+  );
+  const stops = useMemo(
+    () => (trip.stops || []).filter((stop) => stop.stopType !== "airport"),
+    [trip.stops],
+  );
+  const airportTransfers = trip.airportTransfers ?? [];
+  const arrivalTransfers = airportTransfers.filter(
+    (transfer) => transfer.role === "arrival",
+  );
+  const departureTransfers = airportTransfers.filter(
+    (transfer) => transfer.role === "departure",
+  );
   const areaName = (trip.preference as { area?: string })?.area || "서울";
   const currency = new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "ja-JP");
 
@@ -183,6 +200,10 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         </span>
       </div>
 
+      <div style={{ padding: "12px 16px 0" }}>
+        <SafetyConstraintSummary trip={trip} compact />
+      </div>
+
       {/* Mini Interactive Map */}
       {showMap && stops.length > 0 && (
         <div style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
@@ -196,6 +217,16 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
 
       {/* Stops Timeline List */}
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        {arrivalTransfers.map((transfer) => (
+          <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
+        ))}
+        {legacyAirportStops.length > 0 && airportTransfers.length === 0 && (
+          <p className="legacy-airport-notice" role="status" style={{ marginLeft: 0 }}>
+            {lang === "ko"
+              ? "이전 일정의 공항 정보는 이동 구간으로 표시할 수 없습니다. 공항 이동 시간은 직접 확인해 주세요."
+              : "以前の旅程の空港情報は移動区間として表示できません。空港までの移動時間はご自身で確認してください。"}
+          </p>
+        )}
         {stops.map((stop, index) => (
           <PlaceCard
             key={stop.id || `${stop.placeId}-${index}`}
@@ -212,6 +243,9 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
             onViewed={() => {}}
             onSwapPlace={handleSwapPlace}
           />
+        ))}
+        {departureTransfers.map((transfer) => (
+          <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
         ))}
       </div>
 

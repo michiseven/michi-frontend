@@ -19,6 +19,7 @@ import {
   ExternalLinkIcon,
   TrashIcon,
 } from "./icons";
+import { SafetyPlaceBadges } from "./safety-constraint-summary";
 
 interface PlaceCardProps {
   stop: TripStop;
@@ -126,6 +127,7 @@ export function PlaceCard({
         <p className="place-kicker">
           {displayCategory || t.placeCategoryFallback}
         </p>
+        <SafetyPlaceBadges assessments={stop.accessibilitySafety} />
         <div className="place-title-line">
           <h3 id={`stop-title-${stop.id}`}>{displayName}</h3>
           <span className="place-order">

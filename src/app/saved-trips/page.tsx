@@ -139,7 +139,7 @@ export default function SavedTripsPage() {
                   </div>
                   <div className="saved-trip-actions">
                     <Link
-                      href={`/trips/${encodeURIComponent(item.tripId)}`}
+                      href={`/trips/${encodeURIComponent(item.tripId)}?savedId=${encodeURIComponent(item.id)}`}
                       className="button button-secondary button-sm"
                     >
                       旅程を見る

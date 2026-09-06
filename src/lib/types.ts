@@ -185,7 +185,50 @@ export interface TripStop {
     steepFeatureCount: number;
     disclaimer: string;
   } | null;
+  /**
+   * Safety assessment supplied by the recommendation pipeline.
+   * A `verified` value is evidence-backed for the named constraint only; it
+   * never means that the whole place or route is universally accessible.
+   */
+  accessibilitySafety?: SafetyConstraintAssessment[] | null;
   scoreBreakdown: ScoreBreakdown;
+}
+
+/** Mirrors the Console safety contract. These are requests, not venue facts. */
+export type SafetyConstraint =
+  | "food_allergy"
+  | "medical"
+  | "wheelchair"
+  | "stroller"
+  | "stairs_avoidance";
+
+export type SafetyConstraintStatus = "verified" | "unverified" | "unsupported";
+
+export interface SafetyRequest {
+  id: string;
+  kind: SafetyConstraint;
+  scope: "place" | "route" | "facility";
+}
+
+export interface SafetyConstraintAssessment {
+  id: string;
+  kind: SafetyConstraint;
+  scope: "place" | "route" | "facility";
+  status: SafetyConstraintStatus;
+  /** Backend-issued fact only. An absent result is not rendered as a positive claim. */
+  result: "satisfied" | "unsatisfied" | "unknown";
+  sourceRefs: Array<{
+    title: string;
+    url: string | null;
+    fetchedAt: string | null;
+  }>;
+  warnings: string[];
+}
+
+export interface TripSafetyConstraints {
+  requested: SafetyRequest[];
+  assessments: SafetyConstraintAssessment[];
+  requiresUserConfirmation: boolean;
 }
 
 export interface AnchorPlacePreference {
@@ -236,6 +279,7 @@ export interface TripPreference {
   endDate?: string | null;
   totalDays?: number;
   totalBudgetKrw?: number | null;
+  budgetScope?: "per_person" | "total" | null;
   partySize?: number;
   companions?: string | null;
   pace?: string | null;
@@ -267,6 +311,37 @@ export interface TripPreference {
   days?: DayTripPreference[];
 }
 
+/**
+ * An airport is a boundary of a trip, not a recommended place.
+ *
+ * The API deliberately returns these separately from `stops` so clients never
+ * score, map, reorder, or show an airport as a venue to visit.
+ */
+export interface AirportTransfer {
+  role: "arrival" | "departure";
+  appliesOn: "first_day" | "last_day";
+  dayNumber: number;
+  airport: {
+    code: AirportCode | string;
+    iata?: string;
+    terminal?: string;
+    name: string;
+    address: string;
+  };
+  /** ISO local travel date (`YYYY-MM-DD`). */
+  date: string;
+  /** Target arrival/departure time at the airport boundary (`HH:mm`). */
+  at: string;
+  transfer: {
+    mode: string | null;
+    durationMinutes: number | null;
+    status: "verified" | "unverified" | "unavailable" | string;
+    source: string;
+  };
+  /** Departure-only airport check-in/security buffer, where available. */
+  bufferMinutes?: number | null;
+}
+
 export interface Trip {
   id: string;
   editToken?: string | null;
@@ -277,6 +352,7 @@ export interface Trip {
   endDate?: string;
   totalDays?: number;
   totalBudgetKrw?: number | null;
+  budgetScope?: "per_person" | "total" | null;
   partySize?: number;
   companions?: string | null;
   pace?: string | null;
@@ -303,12 +379,15 @@ export interface Trip {
   preference?: TripPreference;
   appliedWeights?: Omit<ScoreBreakdown, "total">;
   stops: TripStop[];
+  airportTransfers?: AirportTransfer[];
   providerModes: ProviderModes;
   providerSources?: {
     place?: string;
     crowd?: string;
   };
   warnings: string[];
+  /** Safety constraints are intentionally separate from normal preference scoring. */
+  safetyConstraints?: TripSafetyConstraints | null;
 }
 
 export interface GenerateTripInput {

@@ -140,6 +140,55 @@ describe("trip detail editing", () => {
     expect(screen.getAllByText("ローカル発見")).toHaveLength(2);
   });
 
+  it("keeps airport transfer boundaries out of venue cards, map stops, and venue count", () => {
+    const tripWithAirportBoundary = structuredClone(testTrip);
+    tripWithAirportBoundary.stops = [
+      {
+        ...testTrip.stops[0]!,
+        id: "legacy-airport-stop",
+        placeId: "ICN_T1",
+        placeName: "Incheon Int'l Airport Terminal 1",
+        category: "airport",
+        stopType: "airport",
+        estimatedStayMinutes: 60,
+        reason: "This must not be a recommended venue.",
+      },
+      ...testTrip.stops,
+    ];
+    tripWithAirportBoundary.airportTransfers = [
+      {
+        role: "arrival",
+        appliesOn: "first_day",
+        dayNumber: 1,
+        airport: {
+          code: "ICN_T1",
+          iata: "ICN",
+          terminal: "T1",
+          name: "Incheon Int'l Airport Terminal 1",
+          address: "인천광역시 중구 공항로 271",
+        },
+        date: "2026-08-19",
+        at: "08:20",
+        transfer: {
+          mode: null,
+          durationMinutes: null,
+          status: "unavailable",
+          source: "공항과 시내 사이의 검증된 이동시간 데이터가 아직 없습니다.",
+        },
+      },
+    ];
+
+    render(<TripView initialTrip={tripWithAirportBoundary} />);
+
+    expect(screen.getByText("到着後、市内へ移動")).toBeInTheDocument();
+    expect(screen.getByText(/市内への移動情報は未確認です/)).toBeInTheDocument();
+    expect(screen.queryByText("This must not be a recommended venue.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Incheon Int'l Airport Terminal 1" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("📍 2スポット")).toBeInTheDocument();
+  });
+
   it("keeps existing trips free of unsupported tourism claims", () => {
     render(<TripView initialTrip={testTrip} />);
     expect(screen.queryByText("観光データによる補足")).not.toBeInTheDocument();
@@ -436,66 +485,10 @@ describe("trip detail editing", () => {
     expect(screen.getByText("地図を表示できません")).toBeInTheDocument();
   });
 
-  it("shares trip via navigator.share when available", async () => {
-    const shareMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(window.navigator, "share", {
-      value: shareMock,
-      configurable: true,
-    });
-    Object.defineProperty(globalThis.navigator, "share", {
-      value: shareMock,
-      configurable: true,
-    });
+  it("does not expose a share URL before a revocable read-only share exists", () => {
+    render(<TripView initialTrip={testTrip} />);
 
-    const user = userEvent.setup();
-    const { unmount } = render(<TripView initialTrip={testTrip} />);
-
-    const shareBtn = screen.getByRole("button", { name: "旅程を共有" });
-    await user.click(shareBtn);
-
-    expect(shareMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: expect.stringContaining("Michi"),
-      }),
-    );
-    expect(
-      await screen.findByText(/旅程のリンクをコピーしました！/),
-    ).toBeInTheDocument();
-
-    unmount();
-    delete (window.navigator as unknown as { share?: unknown }).share;
-    delete (globalThis.navigator as unknown as { share?: unknown }).share;
-  });
-
-  it("falls back to clipboard copy when navigator.share is unavailable", async () => {
-    delete (window.navigator as unknown as { share?: unknown }).share;
-    delete (globalThis.navigator as unknown as { share?: unknown }).share;
-
-    const user = userEvent.setup();
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    const clipObj = { writeText: writeTextMock };
-    Object.defineProperty(window.navigator, "clipboard", {
-      value: clipObj,
-      configurable: true,
-    });
-    Object.defineProperty(globalThis.navigator, "clipboard", {
-      value: clipObj,
-      configurable: true,
-    });
-
-    const { unmount } = render(<TripView initialTrip={testTrip} />);
-
-    const shareBtn = screen.getByRole("button", { name: "旅程を共有" });
-    await user.click(shareBtn);
-
-    expect(
-      await screen.findByText(/旅程のリンクをコピーしました！/),
-    ).toBeInTheDocument();
-    expect(writeTextMock).toHaveBeenCalled();
-
-    unmount();
-    delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
-    delete (globalThis.navigator as unknown as { clipboard?: unknown })
-      .clipboard;
+    expect(screen.getByText(/安全な共有リンクは準備中です/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "旅程を共有" })).not.toBeInTheDocument();
   });
 });
