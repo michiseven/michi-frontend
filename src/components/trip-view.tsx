@@ -20,7 +20,6 @@ import { TripConstraintSummary } from "./trip-constraint-summary";
 import {
   BookmarkIcon,
   CheckIcon,
-  MapIcon,
   RefreshIcon,
 } from "./icons";
 
@@ -64,7 +63,7 @@ export function TripView({
     "idle" | "started" | "completed"
   >("idle");
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(false);
+  const showMap = true;
   const [savingTrip, setSavingTrip] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -122,6 +121,7 @@ export function TripView({
     selectedDay === "all"
       ? regularStops
       : regularStops.filter((s) => (s.dayNumber ?? 1) === selectedDay);
+  const selectedStopId = activeStopId ?? filteredStops[0]?.id ?? null;
 
   const selectedDayDate =
     selectedDay === "all"
@@ -288,17 +288,6 @@ export function TripView({
         element.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }
-  }
-
-  function showStopOnMap(stopId: string) {
-    setActiveStopId(stopId);
-    setShowMap(true);
-    window.requestAnimationFrame(() => {
-      document.getElementById("trip-map")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
   }
 
   function openNaverWalkingRoute() {
@@ -471,17 +460,6 @@ export function TripView({
               </>
             )}
           </button>
-          <button
-            className="button button-secondary map-toggle-btn"
-            type="button"
-            onClick={() => setShowMap((prev) => !prev)}
-            aria-expanded={showMap}
-            aria-controls="trip-map"
-            aria-label={t.tripMapToggle}
-          >
-            <MapIcon />
-            {showMap ? t.tripMapHide : t.tripMapShow}
-          </button>
           {filteredStops.length >= 2 && (
             <button
               className="button button-secondary"
@@ -555,7 +533,7 @@ export function TripView({
             <div className="map-panel" id="trip-map" tabIndex={-1}>
               <NaverMap
                 stops={mapStops}
-                activeStopId={activeStopId}
+                activeStopId={selectedStopId}
                 onSelectStop={handleSelectStop}
               />
               <p className="map-note">{t.tripMapNote}</p>
@@ -606,6 +584,7 @@ export function TripView({
             )}
             <ol className="timeline" aria-label={t.tripTimelineLabel}>
               {filteredStops.map((stop, index) => {
+                if (stop.id !== selectedStopId) return null;
                 const prevStop =
                   index > 0 ? filteredStops[index - 1] : undefined;
                 let legInfo:
@@ -749,12 +728,24 @@ export function TripView({
                         stop={stop}
                         index={index}
                         count={filteredStops.length}
-                        editable={editable && legacyAirportStops.length === 0}
+                        editable={false}
                         busy={busy}
-                        isActive={activeStopId === stop.id}
+                        isActive={selectedStopId === stop.id}
                         tripId={trip.id}
                         onFocusCard={() => setActiveStopId(stop.id)}
-                        onShowOnMap={() => showStopOnMap(stop.id)}
+                        navigation={
+                          filteredStops.length > 1 ? (
+                            <nav className="place-carousel-controls" aria-label={lang === "ko" ? "장소 설명 이동" : "スポット説明の移動"}>
+                              <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(filteredStops[index - 1]?.id ?? stop.id); }} disabled={index === 0}>
+                                {lang === "ko" ? "← 이전 장소" : "← 前のスポット"}
+                              </button>
+                              <span aria-live="polite">{index + 1} / {filteredStops.length}</span>
+                              <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(filteredStops[index + 1]?.id ?? stop.id); }} disabled={index === filteredStops.length - 1}>
+                                {lang === "ko" ? "다음 장소 →" : "次のスポット →"}
+                              </button>
+                            </nav>
+                          ) : null
+                        }
                         onMove={move}
                         onRemove={(stopId) => {
                           const removedStop = regularStops.find(

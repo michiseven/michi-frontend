@@ -31,56 +31,25 @@ describe("trip detail editing", () => {
     delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
   });
 
-  it("removes a stop through the backend contract", async () => {
-    vi.mocked(patchTripStops).mockResolvedValue({
-      ...testTrip,
-      stops: [testTrip.stops[1]],
-    });
+  it("shows one place description at a time and advances with the next arrow", async () => {
     const user = userEvent.setup();
     render(<TripView initialTrip={testTrip} editable />);
 
-    await user.click(
-      screen.getByRole("button", { name: "テストカフェを旅程から削除" }),
-    );
-
-    expect(patchTripStops).toHaveBeenCalledWith("trip-test-1", {
-      action: "remove",
-      stopId: "stop-1",
-    });
-    expect(await screen.findByText("場所を削除しました。")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "テストカフェ" }),
-    ).not.toBeInTheDocument();
-    expect(captureMichiEvent).toHaveBeenCalledWith("place_removed", {
-      tripId: "trip-test-1",
-      placeId: "place-1",
-      context: { previousOrder: 1 },
-    });
+    expect(screen.getByRole("heading", { name: "テストカフェ" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "テストショップ" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "次のスポット →" }));
+    expect(screen.getByRole("heading", { name: "テストショップ" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "テストカフェ" })).not.toBeInTheDocument();
   });
 
-  it("sends the new stop order", async () => {
-    const reordered = {
-      ...testTrip,
-      stops: [testTrip.stops[1], testTrip.stops[0]],
-    };
-    vi.mocked(patchTripStops).mockResolvedValue(reordered);
+  it("returns to the previous place without changing the itinerary order", async () => {
     const user = userEvent.setup();
     render(<TripView initialTrip={testTrip} editable />);
 
-    await user.click(
-      screen.getByRole("button", { name: "テストカフェを一つ後へ" }),
-    );
-
-    expect(patchTripStops).toHaveBeenCalledWith("trip-test-1", {
-      action: "reorder",
-      stopIds: ["stop-2", "stop-1"],
-    });
-    expect(await screen.findByText("順番を更新しました。")).toBeInTheDocument();
-    expect(captureMichiEvent).toHaveBeenCalledWith("place_reordered", {
-      tripId: "trip-test-1",
-      placeId: "place-1",
-      context: { fromOrder: 1, toOrder: 2 },
-    });
+    await user.click(screen.getByRole("button", { name: "次のスポット →" }));
+    await user.click(screen.getByRole("button", { name: "← 前のスポット" }));
+    expect(screen.getByRole("heading", { name: "テストカフェ" })).toBeInTheDocument();
+    expect(patchTripStops).not.toHaveBeenCalled();
   });
 
   it("records score detail views and explicit route progress without content capture", async () => {
@@ -303,7 +272,7 @@ describe("trip detail editing", () => {
     expect(screen.queryByText("リウム美術館")).not.toBeInTheDocument();
   });
 
-  it("renders subway and bus transit route details in timeline connector", () => {
+  it("renders subway and bus transit route details when moving to the next place", async () => {
     const transitTrip = {
       ...testTrip,
       stops: [
@@ -335,7 +304,9 @@ describe("trip detail editing", () => {
       ],
     };
 
+    const user = userEvent.setup();
     render(<TripView initialTrip={transitTrip} />);
+    await user.click(screen.getByRole("button", { name: "次のスポット →" }));
 
     expect(
       screen.getByText(/🚇 地下鉄 孔徳駅 → 安国駅 約24分/),
@@ -346,7 +317,7 @@ describe("trip detail editing", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders contextual tripSummary and 4-part stop explanations when provided", () => {
+  it("renders contextual tripSummary and the selected stop explanation", async () => {
     const explainedTrip = {
       ...testTrip,
       explanation: {
@@ -379,6 +350,7 @@ describe("trip detail editing", () => {
       ],
     };
 
+    const user = userEvent.setup();
     render(<TripView initialTrip={explainedTrip} />);
 
     // Trip Summary
@@ -402,7 +374,9 @@ describe("trip detail editing", () => {
       screen.getByText("静かに過ごしたい希望にぴったりです。"),
     ).toBeInTheDocument();
 
-    // Stop 2 Explanations
+    await user.click(screen.getByRole("button", { name: "次のスポット →" }));
+
+    // Stop 2 Explanations after advancing the card.
     expect(
       screen.getByText(
         "テストショップは最新のファッションを扱うセレクトショップです。",
@@ -448,7 +422,8 @@ describe("trip detail editing", () => {
     resetLanguage("ja");
   });
 
-  it("renders legacy trips without explanation using standard reason fallback", () => {
+  it("renders legacy trips without explanation using standard reason fallback", async () => {
+    const user = userEvent.setup();
     render(<TripView initialTrip={testTrip} />);
 
     expect(
@@ -457,9 +432,8 @@ describe("trip detail editing", () => {
     expect(
       screen.getByText("静かなカフェという希望と一致します。"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("セレクトショップの希望と一致します。"),
-    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "次のスポット →" }));
+    expect(screen.getByText("セレクトショップの希望と一致します。")).toBeInTheDocument();
   });
 
   it("renders timeline summary bar with duration and stops count", () => {
@@ -469,20 +443,11 @@ describe("trip detail editing", () => {
     expect(screen.getByText(/約2時間/)).toBeInTheDocument();
   });
 
-  it("toggles map visibility when clicking the map toggle button", async () => {
-    const user = userEvent.setup();
+  it("keeps the map above the selected place description", () => {
     render(<TripView initialTrip={testTrip} />);
 
-    const toggleBtn = screen.getByRole("button", { name: "地図の表示切替" });
-    expect(screen.queryByText("地図を表示できません")).not.toBeInTheDocument();
-    expect(toggleBtn).toHaveTextContent("地図を表示");
-
-    await user.click(toggleBtn);
     expect(screen.getByText("地図を表示できません")).toBeInTheDocument();
-    expect(toggleBtn).toHaveTextContent("地図を閉じる");
-
-    await user.click(toggleBtn);
-    expect(screen.queryByText("地図を表示できません")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "スポット説明の移動" })).toBeInTheDocument();
   });
 
   it("does not expose a share URL before a revocable read-only share exists", () => {

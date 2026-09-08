@@ -8,7 +8,6 @@ import { patchTripStops } from "@/lib/api";
 import type { Trip } from "@/lib/types";
 import { PlaceCard } from "./place-card";
 import { NaverMap } from "./naver-map";
-import { MapIcon } from "./icons";
 import { SafetyConstraintSummary } from "./safety-constraint-summary";
 import { AirportTransferCard } from "./airport-transfer-card";
 
@@ -21,7 +20,7 @@ interface GenerativeTripWidgetProps {
 export function GenerativeTripWidget({ trip: initialTrip, className, style }: GenerativeTripWidgetProps) {
   const { t, lang } = useI18n();
   const [modifiedTrip, setModifiedTrip] = useState<Trip | null>(null);
-  const [showMap, setShowMap] = useState(false);
+  const showMap = true;
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +63,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
     () => stops.filter((s) => s.estimatedCost == null).length,
     [stops],
   );
+  const selectedStopId = activeStopId ?? stops[0]?.id ?? null;
 
   const handleSwapPlace = async (stopId: string, newPlaceId: string) => {
     setBusy(true);
@@ -131,27 +131,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
           >
             📍 {stops.length} {lang === "ko" ? "개 장소" : "スポット"}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowMap(!showMap)}
-            aria-expanded={showMap}
-            aria-controls="generated-trip-map"
-            style={{
-              background: "transparent",
-              border: "1px solid rgba(255, 255, 255, 0.3)",
-              color: "#ffffff",
-              borderRadius: "8px",
-              padding: "4px 8px",
-              fontSize: "0.8rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            <MapIcon style={{ width: 14, height: 14 }} />
-            {showMap ? (lang === "ko" ? "지도 접기" : "地図非表示") : (lang === "ko" ? "지도 보기" : "地図表示")}
-          </button>
         </div>
       </div>
 
@@ -211,7 +190,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         <div id="generated-trip-map" style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
           <NaverMap
             stops={mapStops}
-            activeStopId={activeStopId}
+            activeStopId={selectedStopId}
             onSelectStop={(id: string) => setActiveStopId(id)}
           />
         </div>
@@ -229,27 +208,30 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
               : "以前の旅程の空港情報は移動区間として表示できません。空港までの移動時間はご自身で確認してください。"}
           </p>
         )}
-        {stops.map((stop, index) => (
+        {stops.map((stop, index) => stop.id === selectedStopId && (
           <PlaceCard
             key={stop.id || `${stop.placeId}-${index}`}
             stop={stop}
             index={index}
             count={stops.length}
-            editable={true}
+            editable={false}
             busy={busy}
-            isActive={stop.id === activeStopId}
+            isActive={stop.id === selectedStopId}
             tripId={trip.id}
             onFocusCard={() => setActiveStopId(stop.id)}
-            onShowOnMap={() => {
-              setActiveStopId(stop.id);
-              setShowMap(true);
-              window.requestAnimationFrame(() => {
-                document.getElementById("generated-trip-map")?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              });
-            }}
+            navigation={
+              stops.length > 1 ? (
+                <nav className="place-carousel-controls" aria-label={lang === "ko" ? "장소 설명 이동" : "スポット説明の移動"}>
+                  <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(stops[index - 1]?.id ?? stop.id); }} disabled={index === 0}>
+                    {lang === "ko" ? "← 이전 장소" : "← 前のスポット"}
+                  </button>
+                  <span aria-live="polite">{index + 1} / {stops.length}</span>
+                  <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(stops[index + 1]?.id ?? stop.id); }} disabled={index === stops.length - 1}>
+                    {lang === "ko" ? "다음 장소 →" : "次のスポット →"}
+                  </button>
+                </nav>
+              ) : null
+            }
             onMove={() => {}}
             onRemove={() => {}}
             onViewed={() => {}}

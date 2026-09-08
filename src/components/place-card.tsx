@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   ScoreBreakdown,
   StopAlternativeItem,
@@ -30,7 +30,7 @@ interface PlaceCardProps {
   isActive?: boolean;
   tripId?: string;
   onFocusCard?: () => void;
-  onShowOnMap?: () => void;
+  navigation?: ReactNode;
   onMove: (index: number, direction: -1 | 1) => void;
   onRemove: (stopId: string) => void;
   onViewed: (placeId: string) => void;
@@ -50,7 +50,7 @@ export function PlaceCard({
   isActive = false,
   tripId,
   onFocusCard,
-  onShowOnMap,
+  navigation,
   onMove,
   onRemove,
   onViewed,
@@ -225,19 +225,6 @@ export function PlaceCard({
             )}
         </div>
         {stop.address && <p className="place-address">{stop.address}</p>}
-        {onShowOnMap && (
-          <button
-            className="button button-secondary button-small place-map-focus"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onShowOnMap();
-            }}
-          >
-            {lang === "ko" ? "지도에서 보기" : "地図で見る"}
-          </button>
-        )}
-
         {stop.placeDescription && (
           <div
             className="place-description-evidence"
@@ -633,6 +620,8 @@ export function PlaceCard({
             </button>
           </div>
         )}
+
+        {navigation && <div className="place-card-navigation">{navigation}</div>}
 
         {/* Alternatives Modal with Dimmed Dark Backdrop */}
         {showAlternatives && (

@@ -272,7 +272,9 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 .place-title-line { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
 .place-order { flex: none; color: var(--muted); font-size: 13px; }
 .place-address { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
-.place-map-focus { margin-top: 10px; }
+.place-card-navigation { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.place-carousel-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.place-carousel-controls > span { color: var(--muted); font-size: 13px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .reason { margin: 14px 0 0; padding-left: 12px; border-left: 3px solid var(--accent); }
 .tourism-evidence { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .tourism-evidence-title { margin: 0 0 8px; color: var(--primary); font-size: 13px; font-weight: 800; }
@@ -379,9 +381,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
   .page-shell { padding-top: 52px; }
   .planner-form { padding: 30px; }
   .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .trip-layout { grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); align-items: start; }
-  .map-panel { position: sticky; top: 88px; grid-column: 2; grid-row: 1; }
-  .timeline-panel { grid-column: 1; grid-row: 1; }
+  .trip-layout { grid-template-columns: minmax(0, 1fr); }
   .evaluation-route-grid { grid-template-columns: 1fr 1fr; }
 }
 
