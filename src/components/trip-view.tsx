@@ -6,6 +6,7 @@ import { patchTripStops, saveUserTrip } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { localizePlaceName, localizePlaceText } from "@/lib/place-localization";
+import { createNaverWalkingRouteUrl } from "@/lib/naver-map-app";
 import { saveRecentTrip } from "@/lib/storage";
 import { captureMichiEvent } from "@/lib/telemetry";
 import type { Trip } from "@/lib/types";
@@ -289,6 +290,22 @@ export function TripView({
     }
   }
 
+  function openNaverWalkingRoute() {
+    const routeUrl = createNaverWalkingRouteUrl(
+      mapStops,
+      typeof window === "undefined" ? "michi" : window.location.origin,
+    );
+    if (!routeUrl) {
+      setActionError(
+        lang === "ko"
+          ? "네이버 지도 앱은 한 번에 2~7개 장소의 도보 길찾기를 지원합니다. 하루 일정을 나눠 열어주세요."
+          : "NAVERマップは一度に2〜7か所の徒歩ルートに対応しています。1日の旅程を分けて開いてください。",
+      );
+      return;
+    }
+    window.location.assign(routeUrl);
+  }
+
   return (
     <section className="trip-shell" aria-labelledby="trip-title">
       <header className="trip-header">
@@ -452,6 +469,16 @@ export function TripView({
             <MapIcon />
             {showMap ? t.tripMapHide : t.tripMapShow}
           </button>
+          {filteredStops.length >= 2 && (
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={openNaverWalkingRoute}
+              aria-describedby="naver-map-app-note"
+            >
+              {lang === "ko" ? "네이버 지도에서 도보 길찾기" : "NAVERマップで徒歩ルート"}
+            </button>
+          )}
           {editable && routeStatus === "idle" && (
             <button
               className="button button-secondary"
@@ -518,8 +545,14 @@ export function TripView({
                 stops={mapStops}
                 activeStopId={activeStopId}
                 onSelectStop={handleSelectStop}
+                showPolyline={false}
               />
               <p className="map-note">{t.tripMapNote}</p>
+              <p className="map-note" id="naver-map-app-note">
+                {lang === "ko"
+                  ? "도보 길찾기는 네이버 지도 앱에서 확인합니다. 앱이 설치되어 있어야 합니다."
+                  : "徒歩ルートはNAVERマップアプリで確認します。アプリのインストールが必要です。"}
+              </p>
             </div>
           )}
           <div className="timeline-panel">
