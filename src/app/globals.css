@@ -272,6 +272,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 .place-title-line { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
 .place-order { flex: none; color: var(--muted); font-size: 13px; }
 .place-address { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.place-map-focus { margin-top: 10px; }
 .reason { margin: 14px 0 0; padding-left: 12px; border-left: 3px solid var(--accent); }
 .tourism-evidence { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .tourism-evidence-title { margin: 0 0 8px; color: var(--primary); font-size: 13px; font-weight: 800; }

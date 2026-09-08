@@ -206,7 +206,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
 
       {/* Mini Interactive Map */}
       {showMap && stops.length > 0 && (
-        <div style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
+        <div id="generated-trip-map" style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
           <NaverMap
             stops={mapStops}
             activeStopId={activeStopId}
@@ -238,6 +238,10 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
             isActive={stop.id === activeStopId}
             tripId={trip.id}
             onFocusCard={() => setActiveStopId(stop.id)}
+            onShowOnMap={() => {
+              setActiveStopId(stop.id);
+              document.getElementById("generated-trip-map")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
             onMove={() => {}}
             onRemove={() => {}}
             onViewed={() => {}}

@@ -30,6 +30,7 @@ interface PlaceCardProps {
   isActive?: boolean;
   tripId?: string;
   onFocusCard?: () => void;
+  onShowOnMap?: () => void;
   onMove: (index: number, direction: -1 | 1) => void;
   onRemove: (stopId: string) => void;
   onViewed: (placeId: string) => void;
@@ -49,6 +50,7 @@ export function PlaceCard({
   isActive = false,
   tripId,
   onFocusCard,
+  onShowOnMap,
   onMove,
   onRemove,
   onViewed,
@@ -223,6 +225,18 @@ export function PlaceCard({
             )}
         </div>
         {stop.address && <p className="place-address">{stop.address}</p>}
+        {onShowOnMap && (
+          <button
+            className="button button-secondary button-small place-map-focus"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShowOnMap();
+            }}
+          >
+            {lang === "ko" ? "지도에서 보기" : "地図で見る"}
+          </button>
+        )}
 
         {stop.placeDescription && (
           <div

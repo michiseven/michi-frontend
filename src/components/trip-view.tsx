@@ -290,6 +290,17 @@ export function TripView({
     }
   }
 
+  function showStopOnMap(stopId: string) {
+    setActiveStopId(stopId);
+    setShowMap(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("trip-map")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
   function openNaverWalkingRoute() {
     const routeUrl = createNaverWalkingRouteUrl(
       mapStops,
@@ -540,7 +551,7 @@ export function TripView({
       ) : (
         <div className="trip-layout">
           {showMap && filteredStops.length > 0 && (
-            <div className="map-panel">
+            <div className="map-panel" id="trip-map" tabIndex={-1}>
               <NaverMap
                 stops={mapStops}
                 activeStopId={activeStopId}
@@ -742,6 +753,7 @@ export function TripView({
                         isActive={activeStopId === stop.id}
                         tripId={trip.id}
                         onFocusCard={() => setActiveStopId(stop.id)}
+                        onShowOnMap={() => showStopOnMap(stop.id)}
                         onMove={move}
                         onRemove={(stopId) => {
                           const removedStop = regularStops.find(
