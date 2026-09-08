@@ -45,7 +45,6 @@ export interface NaverMapProps {
   stops: MapStop[];
   activeStopId?: string | null;
   onSelectStop?: (stopId: string) => void;
-  showPolyline?: boolean;
 }
 
 const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
@@ -123,14 +122,12 @@ interface MapInstanceHolder {
       index: number;
     }
   >;
-  polyline: { setMap: (map: unknown) => void } | null;
 }
 
 export function NaverMap({
   stops,
   activeStopId,
   onSelectStop,
-  showPolyline = true,
 }: NaverMapProps) {
   const { lang } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,12 +136,10 @@ export function NaverMap({
 
   const onSelectStopRef = useRef(onSelectStop);
   const activeStopIdRef = useRef(activeStopId);
-  const showPolylineRef = useRef(showPolyline);
   useEffect(() => {
     onSelectStopRef.current = onSelectStop;
     activeStopIdRef.current = activeStopId;
-    showPolylineRef.current = showPolyline;
-  }, [onSelectStop, activeStopId, showPolyline]);
+  }, [onSelectStop, activeStopId]);
 
   // Main map lifecycle and stops update
   useEffect(() => {
@@ -158,47 +153,23 @@ export function NaverMap({
         const maps = window.naver.maps;
 
         if (stops.length === 0) {
-          // If no stops, clear markers/polyline if map exists
+          // If no stops, clear markers if map exists.
           if (mapInstanceRef.current) {
             mapInstanceRef.current.markers.forEach(({ marker }) => marker.setMap(null));
             mapInstanceRef.current.markers.clear();
-            if (mapInstanceRef.current.polyline) {
-              mapInstanceRef.current.polyline.setMap(null);
-              mapInstanceRef.current.polyline = null;
-            }
           }
           setState("ready");
           return;
         }
 
-        // If map instance already exists, smoothly update markers & polyline without tearing down DOM
+        // If map instance already exists, smoothly update markers without tearing down DOM.
         if (mapInstanceRef.current) {
           const currentInstance = mapInstanceRef.current;
           // 1. Remove old markers
           currentInstance.markers.forEach(({ marker }) => marker.setMap(null));
           currentInstance.markers.clear();
 
-          // 2. Remove old polyline
-          if (currentInstance.polyline) {
-            currentInstance.polyline.setMap(null);
-            currentInstance.polyline = null;
-          }
-
-          // 3. Create new polyline
-          if (showPolylineRef.current && stops.length > 1) {
-            currentInstance.polyline = new maps.Polyline({
-              map: currentInstance.map,
-              path: stops.map((s) => new maps.LatLng(s.latitude, s.longitude)),
-              strokeColor: "#0f6253",
-              strokeWeight: 4,
-              strokeOpacity: 0.8,
-              strokeStyle: "solid",
-              strokeLineCap: "round",
-              strokeLineJoin: "round",
-            });
-          }
-
-          // 4. Create new markers
+          // Create new markers. Actual walking routes are delegated to NAVER Map.
           const bounds = new maps.LatLngBounds();
           stops.forEach((stop, index) => {
             const position = new maps.LatLng(stop.latitude, stop.longitude);
@@ -260,21 +231,6 @@ export function NaverMap({
           }
         >();
 
-        // Polyline
-        let polyline: { setMap: (map: unknown) => void } | null = null;
-        if (showPolylineRef.current && stops.length > 1) {
-          polyline = new maps.Polyline({
-            map,
-            path: stops.map((s) => new maps.LatLng(s.latitude, s.longitude)),
-            strokeColor: "#0f6253",
-            strokeWeight: 4,
-            strokeOpacity: 0.8,
-            strokeStyle: "solid",
-            strokeLineCap: "round",
-            strokeLineJoin: "round",
-          });
-        }
-
         // Place markers
         stops.forEach((stop, index) => {
           const position = new maps.LatLng(stop.latitude, stop.longitude);
@@ -302,7 +258,7 @@ export function NaverMap({
           map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
         }
 
-        mapInstanceRef.current = { map, markers: markersMap, polyline };
+        mapInstanceRef.current = { map, markers: markersMap };
         setState("ready");
       } catch (err) {
         console.error("Failed to render Naver Map", err);

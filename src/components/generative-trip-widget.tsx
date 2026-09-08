@@ -209,7 +209,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         <div style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
           <NaverMap
             stops={mapStops}
-            showPolyline={false}
             activeStopId={activeStopId}
             onSelectStop={(id: string) => setActiveStopId(id)}
           />

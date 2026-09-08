@@ -545,7 +545,6 @@ export function TripView({
                 stops={mapStops}
                 activeStopId={activeStopId}
                 onSelectStop={handleSelectStop}
-                showPolyline={false}
               />
               <p className="map-note">{t.tripMapNote}</p>
               <p className="map-note" id="naver-map-app-note">

@@ -466,7 +466,7 @@ export function HotelSearchModal({
             </div>
           </div>
 
-          {/* Right Column: Naver Map View (showPolyline={false} so hotels are not connected by lines) */}
+          {/* Right Column: Naver Map View */}
           <div
             style={{
               flex: 1,
@@ -481,7 +481,6 @@ export function HotelSearchModal({
               stops={mapStops}
               activeStopId={activeHotelId}
               onSelectStop={handleSelectMapStop}
-              showPolyline={false}
             />
           </div>
         </div>

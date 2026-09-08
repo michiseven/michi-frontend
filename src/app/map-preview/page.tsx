@@ -46,7 +46,7 @@ export default function MapPreviewPage() {
               {lang === "ko" ? "플래너로 돌아가기" : "プランナーへ戻る"}
             </Link>
           </div>
-          <NaverMap stops={previewLocations} showPolyline={false} />
+          <NaverMap stops={previewLocations} />
           <p className="map-preview-note">
             {lang === "ko"
               ? "이 좌표는 지도 연동 확인 전용이며, 실제 여행 추천 후보나 혼잡 데이터에는 영향을 주지 않습니다."
