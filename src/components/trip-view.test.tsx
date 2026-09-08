@@ -473,16 +473,16 @@ describe("trip detail editing", () => {
     const user = userEvent.setup();
     render(<TripView initialTrip={testTrip} />);
 
-    expect(screen.getByText("地図を表示できません")).toBeInTheDocument();
     const toggleBtn = screen.getByRole("button", { name: "地図の表示切替" });
-    expect(toggleBtn).toHaveTextContent("地図を閉じる");
-
-    await user.click(toggleBtn);
     expect(screen.queryByText("地図を表示できません")).not.toBeInTheDocument();
     expect(toggleBtn).toHaveTextContent("地図を表示");
 
     await user.click(toggleBtn);
     expect(screen.getByText("地図を表示できません")).toBeInTheDocument();
+    expect(toggleBtn).toHaveTextContent("地図を閉じる");
+
+    await user.click(toggleBtn);
+    expect(screen.queryByText("地図を表示できません")).not.toBeInTheDocument();
   });
 
   it("does not expose a share URL before a revocable read-only share exists", () => {

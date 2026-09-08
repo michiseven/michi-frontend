@@ -21,7 +21,7 @@ interface GenerativeTripWidgetProps {
 export function GenerativeTripWidget({ trip: initialTrip, className, style }: GenerativeTripWidgetProps) {
   const { t, lang } = useI18n();
   const [modifiedTrip, setModifiedTrip] = useState<Trip | null>(null);
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(false);
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -134,6 +134,8 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
           <button
             type="button"
             onClick={() => setShowMap(!showMap)}
+            aria-expanded={showMap}
+            aria-controls="generated-trip-map"
             style={{
               background: "transparent",
               border: "1px solid rgba(255, 255, 255, 0.3)",
@@ -240,7 +242,13 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
             onFocusCard={() => setActiveStopId(stop.id)}
             onShowOnMap={() => {
               setActiveStopId(stop.id);
-              document.getElementById("generated-trip-map")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              setShowMap(true);
+              window.requestAnimationFrame(() => {
+                document.getElementById("generated-trip-map")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              });
             }}
             onMove={() => {}}
             onRemove={() => {}}

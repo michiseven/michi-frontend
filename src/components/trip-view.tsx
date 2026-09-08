@@ -64,7 +64,7 @@ export function TripView({
     "idle" | "started" | "completed"
   >("idle");
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(false);
   const [savingTrip, setSavingTrip] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -475,6 +475,8 @@ export function TripView({
             className="button button-secondary map-toggle-btn"
             type="button"
             onClick={() => setShowMap((prev) => !prev)}
+            aria-expanded={showMap}
+            aria-controls="trip-map"
             aria-label={t.tripMapToggle}
           >
             <MapIcon />
@@ -485,7 +487,6 @@ export function TripView({
               className="button button-secondary"
               type="button"
               onClick={openNaverWalkingRoute}
-              aria-describedby="naver-map-app-note"
             >
               {lang === "ko" ? "네이버 지도에서 도보 길찾기" : "NAVERマップで徒歩ルート"}
             </button>
@@ -558,7 +559,7 @@ export function TripView({
                 onSelectStop={handleSelectStop}
               />
               <p className="map-note">{t.tripMapNote}</p>
-              <p className="map-note" id="naver-map-app-note">
+              <p className="map-note">
                 {lang === "ko"
                   ? "도보 길찾기는 네이버 지도 앱에서 확인합니다. 앱이 설치되어 있어야 합니다."
                   : "徒歩ルートはNAVERマップアプリで確認します。アプリのインストールが必要です。"}
