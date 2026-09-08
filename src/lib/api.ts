@@ -805,8 +805,16 @@ export async function sendChatMessage(
     locale?: 'ko' | 'ja';
     currentTripId?: string;
     profile?: Record<string, unknown> | null;
+    /** Starts a new itinerary instead of resuming an existing trip context. */
+    startFreshTrip?: boolean;
+    /** Backend policy for the optional profile on a fresh example request. */
+    profilePolicy?: "apply" | "ignore";
+    /** A user-selected, explicit condition relaxation after a failed recommendation. */
+    relaxations?: Array<"meal_cuisine" | "search_radius" | "route_constraints">;
     threadSecret?: string;
     editToken?: string;
+    /** Cancels only the browser request. It is never sent to the API. */
+    signal?: AbortSignal;
   },
 ): Promise<ChatResponse> {
   if (demoMode) {
@@ -816,6 +824,7 @@ export async function sendChatMessage(
       responseMessage: '데모 모드에서는 실시간 추천을 시뮬레이션합니다.',
     };
   }
+  const { signal, ...payload } = input;
   const headers: Record<string, string> = {};
   if (input.threadSecret) {
     headers['X-Thread-Secret'] = input.threadSecret;
@@ -826,7 +835,8 @@ export async function sendChatMessage(
   return requestJson<ChatResponse>(`/chat/threads/${encodeURIComponent(threadId)}/messages`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(input),
+    signal,
+    body: JSON.stringify(payload),
   });
 }
 
@@ -857,6 +867,28 @@ export async function resumeChatThread(
     method: 'POST',
     headers,
     body: JSON.stringify(input),
+  });
+}
+
+/** Cancels the server-side active run for this thread before aborting the browser request. */
+export async function cancelChatRun(
+  threadId: string,
+  input: { threadSecret?: string; editToken?: string },
+): Promise<ChatResponse> {
+  if (demoMode) {
+    return {
+      threadId,
+      status: 'failed',
+      responseMessage: '일정 생성을 취소했어요.',
+      errorCode: 'CHAT_RUN_CANCELLED',
+    };
+  }
+  const headers: Record<string, string> = {};
+  if (input.threadSecret) headers['X-Thread-Secret'] = input.threadSecret;
+  if (input.editToken) headers['X-Trip-Edit-Token'] = input.editToken;
+  return requestJson<ChatResponse>(`/chat/threads/${encodeURIComponent(threadId)}/cancel`, {
+    method: 'POST',
+    headers,
   });
 }
 

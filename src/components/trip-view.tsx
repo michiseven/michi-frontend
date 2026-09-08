@@ -15,6 +15,7 @@ import { NaverMap } from "./naver-map";
 import { PlaceCard } from "./place-card";
 import { ProviderStatus } from "./provider-status";
 import { SafetyConstraintSummary } from "./safety-constraint-summary";
+import { TripConstraintSummary } from "./trip-constraint-summary";
 import {
   BookmarkIcon,
   CheckIcon,
@@ -327,6 +328,7 @@ export function TripView({
       />
 
       <SafetyConstraintSummary trip={trip} />
+      <TripConstraintSummary trip={trip} />
 
       {trip.explanation && (
         <article

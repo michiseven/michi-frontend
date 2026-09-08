@@ -39,10 +39,10 @@ describe("GenerativeChatPlanner", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /送信|전송|보내기/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /旅行条件を開く|여행 조건 열기/ })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: /입국·출국 일정|入国・出国日程/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /도착·출발 일정|到着・出発日程/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /旅行条件を開く|여행 조건 열기/ }));
-    expect(screen.getByRole("button", { name: /입국·출국 일정|入国・出国日程/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /도착·출발 일정|到着・出発日程/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /荷物なし|荷物預かり必要|짐 보관 없음|짐 보관 필요/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /숙소 검색|宿泊先検索/ })).toBeInTheDocument();
   });
@@ -61,6 +61,62 @@ describe("GenerativeChatPlanner", () => {
     expect(screen.queryByText(/エリア・過ごせる時間・人数だけでも/)).not.toBeInTheDocument();
   });
 
+  it("puts a quick example in the input instead of sending it immediately", () => {
+    render(
+      <I18nProvider>
+        <GenerativeChatPlanner />
+      </I18nProvider>,
+    );
+
+    const example = screen.getAllByRole("button", { name: /例文.*入力欄に入れる/ })[0]!;
+    fireEvent.click(example);
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toContain("聖水");
+    expect(apiMocks.sendChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("starts an example from a fresh trip without applying prior profile conditions", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockResolvedValue({
+      threadId: "thread-1",
+      status: "completed",
+      responseMessage: "日程を作りました。",
+    });
+    render(
+      <I18nProvider>
+        <GenerativeChatPlanner />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: /例文.*入力欄に入れる/ })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+
+    await screen.findByText("日程を作りました。");
+    expect(apiMocks.sendChatMessage).toHaveBeenCalledWith(
+      "thread-1",
+      expect.objectContaining({ startFreshTrip: true, profilePolicy: "ignore" }),
+    );
+  });
+
+  it("offers cancellation while a recommendation is being generated", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockImplementation(
+      (_threadId: string, input: { signal?: AbortSignal }) => new Promise((_resolve, reject) => {
+        input.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+      }),
+    );
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "聖水でカフェに行きたい" } });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+
+    expect(await screen.findByRole("button", { name: "キャンセル" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(await screen.findByText(/旅程作成をキャンセル/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "入力欄で修正" })).toBeInTheDocument();
+  });
+
   it("collects arrival and departure date/time constraints", () => {
     render(
       <I18nProvider>
@@ -69,11 +125,11 @@ describe("GenerativeChatPlanner", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /旅行条件を開く|여행 조건 열기/ }));
-    fireEvent.click(screen.getByRole("button", { name: /입국·출국 일정|入国・出国日程/ }));
-    fireEvent.change(screen.getByLabelText(/^(입국 날짜|入国日)$/), { target: { value: "2026-09-01" } });
-    fireEvent.change(screen.getByLabelText(/^(입국 시간|入国時刻)$/), { target: { value: "14:30" } });
-    fireEvent.change(screen.getByLabelText(/^(출국 날짜|出国日)$/), { target: { value: "2026-09-04" } });
-    fireEvent.change(screen.getByLabelText(/^(출국 시간|出国時刻)$/), { target: { value: "11:00" } });
+    fireEvent.click(screen.getByRole("button", { name: /도착·출발 일정|到着・出発日程/ }));
+    fireEvent.change(screen.getByLabelText(/^(도착 날짜|到着日)$/), { target: { value: "2026-09-01" } });
+    fireEvent.change(screen.getByLabelText(/^(도착 시간|到着時刻)$/), { target: { value: "14:30" } });
+    fireEvent.change(screen.getByLabelText(/^(출발 날짜|出発日)$/), { target: { value: "2026-09-04" } });
+    fireEvent.change(screen.getByLabelText(/^(출발 시간|出発時刻)$/), { target: { value: "11:00" } });
 
     expect(screen.getByDisplayValue("2026-09-01")).toBeInTheDocument();
     expect(screen.getByDisplayValue("11:00")).toBeInTheDocument();
@@ -94,9 +150,9 @@ describe("GenerativeChatPlanner", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /旅行条件を開く|여행 조건 열기/ }));
-    fireEvent.click(screen.getByRole("button", { name: /입국·출국 일정|入国・出国日程/ }));
-    fireEvent.change(screen.getByLabelText(/^(입국 날짜|入国日)$/), { target: { value: "2026-10-10" } });
-    fireEvent.change(screen.getByLabelText(/^(입국 시간|入国時刻)$/), { target: { value: "14:30" } });
+    fireEvent.click(screen.getByRole("button", { name: /도착·출발 일정|到着・出発日程/ }));
+    fireEvent.change(screen.getByLabelText(/^(도착 날짜|到着日)$/), { target: { value: "2026-10-10" } });
+    fireEvent.change(screen.getByLabelText(/^(도착 시간|到着時刻)$/), { target: { value: "14:30" } });
     fireEvent.change(screen.getByLabelText(/입국 공항|到着空港/), { target: { value: "ICN_T2" } });
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "인천공항에서 성수로 가고 싶어요" } });
     fireEvent.click(screen.getByRole("button", { name: /送信|전송|보내기/ }));
@@ -247,6 +303,6 @@ describe("GenerativeChatPlanner", () => {
       "href",
       "https://example.com/visitkorea",
     );
-    expect(screen.getByText("LIVE")).toBeInTheDocument();
+    expect(screen.getByText("最新確認")).toBeInTheDocument();
   });
 });

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { EnvironmentBanner } from "@/components/environment-banner";
-import { MapPinIcon } from "@/components/icons";
 import { GenerativeChatPlanner } from "@/components/generative-chat-planner";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -51,12 +49,6 @@ export default function HomePage() {
           <p className="eyebrow">{t.homeEyebrow}</p>
           <h1>{t.homeTitle}</h1>
           <p className="lede">{t.homeLede}</p>
-          <div className="page-actions">
-            <Link className="button button-secondary" href="/map-preview">
-              <MapPinIcon aria-hidden="true" />
-              {t.mapPreviewBtn}
-            </Link>
-          </div>
         </div>
         <EnvironmentBanner />
         <GenerativeChatPlanner initialIntent={initialIntent} />

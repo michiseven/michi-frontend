@@ -5,6 +5,7 @@ import {
   getStoredEditToken,
   storeEditToken,
   createChatThread,
+  cancelChatRun,
   sendChatMessage,
   resumeChatThread,
 } from "@/lib/api";
@@ -39,7 +40,7 @@ export interface ChatMessage {
 
 export interface TripProfile {
   /** Exact count. The backend rejects values outside 1–50. */
-  partySize: number;
+  partySize?: number;
   budget?: number;
   budgetScope: "per_person" | "total";
   companions?: "solo" | "couple" | "friends" | "family" | "with_children";
@@ -82,13 +83,14 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingMessageAfterLoginRef = useRef<string | null>(null);
+  const requestAbortControllerRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [threadSecret, setThreadSecret] = useState<string | null>(null);
   const [selectedAlternativeId, setSelectedAlternativeId] = useState<string | null>(null);
 
   const [profile, setProfile] = useState<TripProfile>({
-    partySize: 2,
     budgetScope: "per_person",
     safetyConstraints: [],
     hotel: undefined,
@@ -109,12 +111,28 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
+  const [loadingStage, setLoadingStage] = useState<"checking" | "routing" | "waiting">("checking");
+  const [inputOrigin, setInputOrigin] = useState<"direct" | "example">("direct");
+  const [lastRetry, setLastRetry] = useState<{ message: string; startFreshTrip: boolean } | null>(null);
+  const [maxWalkMinutes, setMaxWalkMinutes] = useState<"" | "15" | "30" | "45">("");
+  const [restIntervalMinutes, setRestIntervalMinutes] = useState<"" | "60" | "90">("");
+  const [luggagePlan, setLuggagePlan] = useState<"" | "hotel-before-checkin" | "hotel-after-checkout" | "locker">("");
 
   const currency = new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "ja-JP");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const routingTimer = window.setTimeout(() => setLoadingStage("routing"), 5_000);
+    const waitingTimer = window.setTimeout(() => setLoadingStage("waiting"), 15_000);
+    return () => {
+      window.clearTimeout(routingTimer);
+      window.clearTimeout(waitingTimer);
+    };
+  }, [isLoading]);
 
   // 로그인 전 작성한 요청을 버리지 않는다. AuthModal은 세션을 먼저 갱신하므로,
   // user 변경 뒤 같은 메시지를 한 번만 이어서 보낸다.
@@ -134,15 +152,15 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const quickPrompts =
     lang === "ko"
       ? [
-          "☕ 내일 성수동에서 5만원으로 조용한 카페랑 저녁 삼겹살",
+          "☕ 내일 혼자 성수에서 5만원으로 조용한 카페와 저녁 삼겹살",
           "🏯 경복궁 & 서촌 한옥마을 반나절 산책 코스",
-          "🛍️ 홍대 & 연남동 맛집 탐방과 쇼핑 코스",
+          "🛍️ 혼자 홍대·연남동에서 맛집 탐방과 쇼핑",
           "🍜 명동교자 먹고 을지로 힙지로 투어",
         ]
       : [
-          "☕ 明日、聖水洞で5万ウォン予算で静かなカフェと夜のサムギョプサル",
+          "☕ 明日、一人で聖水で5万ウォン予算の静かなカフェと夜のサムギョプサル",
           "🏯 景福宮＆西村の韓屋村半日散歩ルート",
-          "🛍️ 弘大＆延南洞のグルメ巡りとショッピング",
+          "🛍️ 一人で弘大・延南洞のグルメ巡りとショッピング",
           "🍜 明洞餃子を食べて乙支路ヒップジロツアー",
       ];
   const intentPrompt = initialIntent ? getPlannerIntentPrompt(initialIntent, lang) : null;
@@ -155,7 +173,35 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     return res;
   }
 
-  async function sendMessage(textToSend: string) {
+  function requestContextText(): string[] {
+    const isKo = lang === "ko";
+    const details: string[] = [];
+    if (maxWalkMinutes) {
+      details.push(isKo ? `한 구간 도보는 최대 ${maxWalkMinutes}분` : `1区間の徒歩は最大${maxWalkMinutes}分`);
+    }
+    if (restIntervalMinutes) {
+      details.push(isKo ? `${restIntervalMinutes}분마다 휴식이 필요함` : `${restIntervalMinutes}分ごとに休憩が必要`);
+    }
+    if (profile.hasLuggage && luggagePlan) {
+      const label = isKo
+        ? ({ "hotel-before-checkin": "체크인 전 숙소에 맡기기", "hotel-after-checkout": "체크아웃 후 숙소에 맡기기", locker: "로커 찾기" } as const)[luggagePlan]
+        : ({ "hotel-before-checkin": "チェックイン前にホテルへ預ける", "hotel-after-checkout": "チェックアウト後にホテルへ預ける", locker: "ロッカーを探す" } as const)[luggagePlan];
+      details.push(isKo ? `짐: ${label}` : `荷物: ${label}`);
+    }
+    return details;
+  }
+
+  function makeRequestMessage(textToSend: string): string {
+    const details = requestContextText();
+    if (details.length === 0) return textToSend;
+    return `${textToSend}\n\n${lang === "ko" ? "추가 조건" : "追加条件"}: ${details.join(lang === "ko" ? ", " : "、")}`;
+  }
+
+  async function sendMessage(
+    textToSend: string,
+    startFreshTrip = false,
+    relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints"> = [],
+  ) {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
       pendingMessageAfterLoginRef.current = textToSend;
@@ -172,7 +218,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
+    setInputOrigin("direct");
+    setLoadingStage("checking");
     setIsLoading(true);
+    setLastRetry(null);
+    const abortController = new AbortController();
+    requestAbortControllerRef.current = abortController;
 
     try {
       const threadInfo = await getOrCreateThreadInfo();
@@ -185,12 +236,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           : {}),
       };
       const res = await sendChatMessage(threadInfo.threadId, {
-        message: textToSend,
+        message: makeRequestMessage(textToSend),
         locale: lang,
         currentTripId: activeTrip?.id,
         profile: {
           hotel: profile.hotel,
-          partySize: profile.partySize,
+          ...(profile.partySize != null ? { partySize: profile.partySize } : {}),
           ...(profile.budget != null ? { budget: profile.budget, budgetScope: profile.budgetScope } : {}),
           ...(profile.companions ? { companions: profile.companions } : {}),
           ...(profile.pace ? { pace: profile.pace } : {}),
@@ -198,8 +249,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           hasLuggage: profile.hasLuggage,
           ...scheduleProfile,
         },
+        ...(startFreshTrip ? { startFreshTrip: true, profilePolicy: "ignore" as const } : {}),
+        ...(relaxations.length > 0 ? { relaxations } : {}),
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
+        signal: abortController.signal,
       });
 
       if (res.threadSecret && !threadSecret) {
@@ -230,6 +284,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
 
       setMessages((prev) => [...prev, assistantMessage]);
 
+      if (res.status === "failed") {
+        setLastRetry({ message: textToSend, startFreshTrip });
+      }
+
       if (res.alternatives && res.alternatives.length > 0) {
         setSelectedAlternativeId(res.alternatives[0].placeId);
       }
@@ -255,6 +313,19 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         }
       }
     } catch {
+      if (abortController.signal.aborted) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateMessageId("cancelled"),
+            role: "assistant",
+            content: lang === "ko" ? "일정 생성을 취소했어요. 요청을 고쳐서 다시 보낼 수 있어요." : "旅程作成をキャンセルしました。内容を直してもう一度送れます。",
+          },
+        ]);
+        setLastRetry({ message: textToSend, startFreshTrip });
+        return;
+      }
+      setLastRetry({ message: textToSend, startFreshTrip });
       setMessages((prev) => [
         ...prev,
         {
@@ -267,8 +338,33 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         },
       ]);
     } finally {
+      if (requestAbortControllerRef.current === abortController) {
+        requestAbortControllerRef.current = null;
+      }
       setIsLoading(false);
     }
+  }
+
+  async function cancelGeneration() {
+    const abortController = requestAbortControllerRef.current;
+    if (!abortController) return;
+    const editToken = activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined;
+    try {
+      if (threadId) {
+        await cancelChatRun(threadId, { threadSecret: threadSecret ?? undefined, editToken });
+      }
+    } catch {
+      // The browser abort below still returns control to the user if the cancel request cannot reach the server.
+    } finally {
+      abortController.abort();
+    }
+  }
+
+  function prepareRetry() {
+    if (!lastRetry) return;
+    setInput(lastRetry.message);
+    setInputOrigin(lastRetry.startFreshTrip ? "example" : "direct");
+    inputRef.current?.focus();
   }
 
   async function handleResumeDecision(decision: "approve" | "reject", chosenPlaceId?: string) {
@@ -333,7 +429,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    void sendMessage(input);
+    void sendMessage(input, inputOrigin === "example");
   }
 
   function handleSelectTrip(trip: Trip) {
@@ -395,7 +491,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 <p style={{ margin: 0, color: "#64748b", fontSize: "0.78rem", lineHeight: 1.45 }}>
                   {t.plannerTravelConditionsHelp}
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", overflowX: "auto", whiteSpace: "nowrap" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
 
             <button
               type="button"
@@ -414,8 +510,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               📅 {profile.arrivalDate && profile.departureDate
                 ? `${profile.arrivalDate.slice(5).replace("-", "/")}–${profile.departureDate.slice(5).replace("-", "/")}`
                 : lang === "ko"
-                  ? "입국·출국 일정"
-                  : "入国・出国日程"}
+                  ? "도착·출발 일정"
+                  : "到着・出発日程"}
             </button>
 
             <label style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#334155", fontWeight: 600 }}>
@@ -426,10 +522,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 min="1"
                 max="50"
                 inputMode="numeric"
-                value={profile.partySize}
+                value={profile.partySize ?? ""}
                 onChange={(e) => {
-                  const next = Number(e.target.value);
-                  if (Number.isInteger(next) && next >= 1 && next <= 50) setProfile({ ...profile, partySize: next });
+                  const value = e.target.value;
+                  const next = Number(value);
+                  setProfile({ ...profile, partySize: value === "" || !Number.isInteger(next) || next < 1 || next > 50 ? undefined : next });
                 }}
               style={{
                 width: "48px",
@@ -442,6 +539,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 fontWeight: 600,
                 color: "#334155",
               }}
+                placeholder={lang === "ko" ? "선택" : "任意"}
               />
               <span>{t.plannerPeopleUnit}</span>
             </label>
@@ -590,6 +688,45 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                     </select>
                   </label>
                   <fieldset style={{ gridColumn: "1 / -1", margin: 0, padding: "8px", border: "1px solid #cbd5e1", borderRadius: "8px" }}>
+                    <legend style={{ fontSize: "0.82rem", fontWeight: 700 }}>{lang === "ko" ? "걷기·휴식 (선택)" : "徒歩・休憩（任意）"}</legend>
+                    <p style={{ margin: "0 0 6px", color: "#64748b", fontSize: "0.75rem", lineHeight: 1.45 }}>
+                      {lang === "ko" ? "선택한 내용은 요청 문장에 함께 전달됩니다. 결과에 근거가 없으면 미확인으로 표시합니다." : "選択内容は依頼文に添えて送信されます。結果に根拠がない場合は未確認と表示します。"}
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
+                      <label style={{ display: "grid", gap: "4px", color: "#334155", fontSize: "0.8rem", fontWeight: 600 }}>
+                        <span>{lang === "ko" ? "한 구간 최대 도보" : "1区間の最大徒歩"}</span>
+                        <select aria-label={lang === "ko" ? "한 구간 최대 도보" : "1区間の最大徒歩"} value={maxWalkMinutes} onChange={(e) => setMaxWalkMinutes(e.target.value as typeof maxWalkMinutes)} style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", background: "#fff" }}>
+                          <option value="">{t.plannerNotSpecified}</option>
+                          <option value="15">{lang === "ko" ? "15분 이내" : "15分以内"}</option>
+                          <option value="30">{lang === "ko" ? "30분 이내" : "30分以内"}</option>
+                          <option value="45">{lang === "ko" ? "45분 이내" : "45分以内"}</option>
+                        </select>
+                      </label>
+                      <label style={{ display: "grid", gap: "4px", color: "#334155", fontSize: "0.8rem", fontWeight: 600 }}>
+                        <span>{lang === "ko" ? "휴식 간격" : "休憩の間隔"}</span>
+                        <select aria-label={lang === "ko" ? "휴식 간격" : "休憩の間隔"} value={restIntervalMinutes} onChange={(e) => setRestIntervalMinutes(e.target.value as typeof restIntervalMinutes)} style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", background: "#fff" }}>
+                          <option value="">{t.plannerNotSpecified}</option>
+                          <option value="60">{lang === "ko" ? "60분마다" : "60分ごと"}</option>
+                          <option value="90">{lang === "ko" ? "90분마다" : "90分ごと"}</option>
+                        </select>
+                      </label>
+                    </div>
+                  </fieldset>
+                  {profile.hasLuggage && (
+                    <fieldset style={{ gridColumn: "1 / -1", margin: 0, padding: "8px", border: "1px solid #cbd5e1", borderRadius: "8px" }}>
+                      <legend style={{ fontSize: "0.82rem", fontWeight: 700 }}>{lang === "ko" ? "짐 보관 방법 (선택)" : "荷物の預け先（任意）"}</legend>
+                      <label style={{ display: "grid", gap: "4px", color: "#334155", fontSize: "0.8rem", fontWeight: 600 }}>
+                        <span>{lang === "ko" ? "먼저 처리할 방법" : "先に済ませたい方法"}</span>
+                        <select aria-label={lang === "ko" ? "짐 보관 방법" : "荷物の預け先"} value={luggagePlan} onChange={(e) => setLuggagePlan(e.target.value as typeof luggagePlan)} style={{ minHeight: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "6px 8px", background: "#fff" }}>
+                          <option value="">{t.plannerNotSpecified}</option>
+                          <option value="hotel-before-checkin">{lang === "ko" ? "체크인 전 숙소에 맡기기" : "チェックイン前にホテルへ預ける"}</option>
+                          <option value="hotel-after-checkout">{lang === "ko" ? "체크아웃 후 숙소에 맡기기" : "チェックアウト後にホテルへ預ける"}</option>
+                          <option value="locker">{lang === "ko" ? "로커 찾기" : "ロッカーを探す"}</option>
+                        </select>
+                      </label>
+                    </fieldset>
+                  )}
+                  <fieldset style={{ gridColumn: "1 / -1", margin: 0, padding: "8px", border: "1px solid #cbd5e1", borderRadius: "8px" }}>
                     <legend style={{ fontSize: "0.82rem", fontWeight: 700 }}>{lang === "ko" ? "안전·이동 조건" : "安全・移動条件"}</legend>
                     <p style={{ margin: "0 0 6px", color: "#64748b", fontSize: "0.75rem" }}>
                       {lang === "ko" ? "확인 가능한 장소 근거가 없으면 미확인으로 안내됩니다." : "施設ごとの根拠がない場合は未確認として案内します。"}
@@ -706,7 +843,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                         }}
                       >
                         <span>🔎 {lang === "ko" ? "웹 검색 근거" : "ウェブ検索の根拠"}</span>
-                        <span>{webEvidence.cacheHit ? (lang === "ko" ? "캐시" : "キャッシュ") : "LIVE"}</span>
+                        <span>{webEvidence.cacheHit ? (lang === "ko" ? "캐시" : "キャッシュ") : (lang === "ko" ? "최신 확인" : "最新確認")}</span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                         {webSources.map((source) => (
@@ -734,7 +871,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                     </div>
                   )}
 
-                  {/* LangGraph Interrupt Approval & Confirmation Card */}
+                  {/* User-facing confirmation for a pending itinerary change. */}
                   {message.pendingAction && message.status === "awaiting_confirmation" && (
                     <div
                       style={{
@@ -787,7 +924,9 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                                   </span>
                                   {alt.distanceMeters != null && (
                                     <span style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600 }}>
-                                      📍 도보 약 {Math.max(1, Math.round(alt.distanceMeters / 70))}분
+                                      📍 {lang === "ko"
+                                        ? `도보 약 ${Math.max(1, Math.round(alt.distanceMeters / 70))}분`
+                                        : `徒歩 約${Math.max(1, Math.round(alt.distanceMeters / 70))}分`}
                                     </span>
                                   )}
                                 </div>
@@ -857,6 +996,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
 
                   {/* Compact Trip Card Pill (Clickable to display in the Right Itinerary Panel) */}
                   {message.resultTrip && (
+                    <>
                     <div
                       onClick={() => handleSelectTrip(message.resultTrip!)}
                       style={{
@@ -927,6 +1067,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                           : (lang === "ko" ? "동선 선택" : "選択")}
                       </span>
                     </div>
+                    <p style={{ maxWidth: "88%", margin: "7px 0 0", color: "#64748b", fontSize: "0.78rem", lineHeight: 1.45 }}>
+                      {lang === "ko"
+                        ? "장소·예상 비용·이동을 확인할 수 있어요. 바꾸고 싶은 조건이 있으면 채팅으로 알려주세요."
+                        : "スポット・目安の費用・移動を確認できます。変えたい条件があればチャットで教えてください。"}
+                    </p>
+                    </>
                   )}
 
                   {/* Interactive Action / Clarification Chips */}
@@ -944,7 +1090,20 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                         <button
                           key={`${chip.label}-${idx}`}
                           type="button"
-                          onClick={() => void sendMessage(chip.query)}
+                          onClick={() => {
+                            const recoveryId = chip.type?.startsWith("recovery:")
+                              ? chip.type.slice("recovery:".length)
+                              : null;
+                            const relaxation =
+                              recoveryId === "meal_cuisine" || recoveryId === "search_radius" || recoveryId === "route_constraints"
+                                ? recoveryId
+                                : null;
+                            void sendMessage(
+                              relaxation ? (lastRetry?.message ?? chip.query) : chip.query,
+                              false,
+                              relaxation ? [relaxation] : [],
+                            );
+                          }}
                           style={{
                             backgroundColor: chip.type === "confirm" ? "#f0fdf4" : "#ffffff",
                             border: chip.type === "confirm" ? "1.5px solid #86efac" : "1px solid #cbd5e1",
@@ -990,6 +1149,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             {/* Loading Indicator */}
             {isLoading && (
               <div
+                role="status"
+                aria-live="polite"
                 style={{
                   padding: "12px 16px",
                   borderRadius: "14px",
@@ -1006,10 +1167,34 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               >
                 <span style={{ fontSize: "1.2rem" }}>🧭</span>
                 <span>
-                  {lang === "ko"
-                    ? "LangGraph 워크플로를 통해 장소를 검증하고 동선을 계산하는 중..."
-                    : "LangGraphワークフローでスポットを検証し、旅程を計算中..."}
+                  {loadingStage === "checking"
+                    ? lang === "ko"
+                      ? "입력한 조건과 장소 후보를 확인하고 있어요…"
+                      : "入力条件と候補スポットを確認しています…"
+                    : loadingStage === "routing"
+                      ? lang === "ko"
+                        ? "장소와 이동 시간을 확인해 일정을 만들고 있어요…"
+                        : "スポットと移動時間を確認して旅程を作っています…"
+                      : lang === "ko"
+                        ? "조금 더 확인이 필요해요. 기다리거나 취소하고 조건을 바꿔 보세요."
+                        : "もう少し確認が必要です。待つか、キャンセルして条件を変えてください。"}
                 </span>
+                <button
+                  type="button"
+                  onClick={cancelGeneration}
+                  style={{ marginLeft: "auto", minHeight: "36px", padding: "6px 10px", borderRadius: "8px", border: "1px solid #93c5fd", background: "#ffffff", color: "#1d4ed8", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  {lang === "ko" ? "취소" : "キャンセル"}
+                </button>
+              </div>
+            )}
+
+            {!isLoading && lastRetry && (
+              <div role="status" style={{ maxWidth: "90%", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", padding: "10px 12px", border: "1px solid #fed7aa", borderRadius: "12px", background: "#fff7ed", color: "#9a3412", fontSize: "0.82rem" }}>
+                <span>{lang === "ko" ? "요청을 고쳐서 다시 시도할 수 있어요." : "内容を直して再試行できます。"}</span>
+                <button type="button" onClick={prepareRetry} style={{ minHeight: "36px", padding: "6px 10px", border: "1px solid #fdba74", borderRadius: "8px", background: "#ffffff", color: "#9a3412", fontWeight: 700, cursor: "pointer" }}>
+                  {lang === "ko" ? "입력으로 다시 보기" : "入力欄で修正"}
+                </button>
               </div>
             )}
 
@@ -1019,7 +1204,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 {intentPrompt && (
                   <button
                     type="button"
-                    onClick={() => setInput(intentPrompt)}
+                    onClick={() => {
+                      setInput(intentPrompt);
+                      setInputOrigin("example");
+                    }}
                     style={{ minHeight: "44px", borderRadius: "10px", border: "1px solid #0f766e", background: "#f0fdfa", color: "#115e59", padding: "9px 12px", textAlign: "left", cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
                   >
                     {lang === "ko" ? "선택한 예시를 입력창에 넣기" : "選んだ例を入力欄に入れる"}
@@ -1048,7 +1236,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                     <button
                       key={prompt}
                       type="button"
-                      onClick={() => void sendMessage(prompt)}
+                      onClick={() => {
+                        setInput(prompt);
+                        setInputOrigin("example");
+                      }}
+                      aria-label={lang === "ko" ? `${prompt} 예시를 입력창에 넣기` : `例文「${prompt}」を入力欄に入れる`}
                       style={{
                         backgroundColor: "#ffffff",
                         border: "1px solid #cbd5e1",
@@ -1085,6 +1277,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             }}
           >
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -1192,7 +1385,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={lang === "ko" ? "입국 및 출국 일정" : "入国・出国日程"}
+          aria-label={lang === "ko" ? "도착 및 출발 일정" : "到着・出発日程"}
           style={{
             position: "fixed",
             inset: 0,
@@ -1216,12 +1409,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.15rem", color: "#0f172a" }}>
-                  {lang === "ko" ? "입국 · 출국 일정" : "入国・出国日程"}
+                  {lang === "ko" ? "도착 · 출발 일정" : "到着・出発日程"}
                 </h2>
                 <p style={{ margin: "6px 0 20px", fontSize: "0.84rem", lineHeight: 1.5, color: "#64748b" }}>
                   {lang === "ko"
-                    ? "첫날에는 입국 시간 이후, 마지막 날에는 출국 시간 전까지만 일정을 만듭니다."
-                    : "初日は到着時刻以降、最終日は出国時刻までの旅程を作成します。"}
+                    ? "도착 날짜와 시간을 먼저 입력한 뒤, 출발 날짜와 시간을 입력해 주세요. 첫날은 도착 이후, 마지막 날은 출발 전까지만 일정을 만듭니다."
+                    : "到着日時を先に入力し、その後に出発日時を入力してください。初日は到着後、最終日は出発前までの旅程を作成します。"}
                 </p>
               </div>
               <button
@@ -1234,20 +1427,22 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
-                {lang === "ko" ? "입국 날짜" : "入国日"}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "14px" }}>
+              <fieldset style={{ display: "grid", gap: "10px", margin: 0, padding: "12px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+                <legend style={{ padding: "0 4px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>{lang === "ko" ? "1. 도착" : "1. 到着"}</legend>
+                <label style={{ display: "grid", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>
+                {lang === "ko" ? "도착 날짜" : "到着日"}
                 <input
-                  aria-label={lang === "ko" ? "입국 날짜" : "入国日"}
+                  aria-label={lang === "ko" ? "도착 날짜" : "到着日"}
                   type="date"
                   value={profile.arrivalDate ?? ""}
                   onChange={(e) => setProfile({ ...profile, arrivalDate: e.target.value })}
                 />
               </label>
-              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
-                {lang === "ko" ? "입국 시간" : "入国時刻"}
+                <label style={{ display: "grid", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>
+                {lang === "ko" ? "도착 시간" : "到着時刻"}
                 <input
-                  aria-label={lang === "ko" ? "입국 시간" : "入国時刻"}
+                  aria-label={lang === "ko" ? "도착 시간" : "到着時刻"}
                   type="time"
                   value={profile.arrivalTime ?? ""}
                   onChange={(e) => setProfile({ ...profile, arrivalTime: e.target.value })}
@@ -1266,26 +1461,29 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   <option value="GMP_INTL">{lang === "ko" ? "김포공항 국제선" : "金浦空港 国際線"}</option>
                   <option value="GMP_DOM">{lang === "ko" ? "김포공항 국내선" : "金浦空港 国内線"}</option>
                 </select>
-              </label>
-              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
-                {lang === "ko" ? "출국 날짜" : "出国日"}
+                </label>
+              </fieldset>
+              <fieldset style={{ display: "grid", gap: "10px", margin: 0, padding: "12px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+                <legend style={{ padding: "0 4px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>{lang === "ko" ? "2. 출발" : "2. 出発"}</legend>
+                <label style={{ display: "grid", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>
+                {lang === "ko" ? "출발 날짜" : "出発日"}
                 <input
-                  aria-label={lang === "ko" ? "출국 날짜" : "出国日"}
+                  aria-label={lang === "ko" ? "출발 날짜" : "出発日"}
                   type="date"
                   min={profile.arrivalDate}
                   value={profile.departureDate ?? ""}
                   onChange={(e) => setProfile({ ...profile, departureDate: e.target.value })}
                 />
               </label>
-              <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
-                {lang === "ko" ? "출국 시간" : "出国時刻"}
+                <label style={{ display: "grid", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>
+                {lang === "ko" ? "출발 시간" : "出発時刻"}
                 <input
-                  aria-label={lang === "ko" ? "출국 시간" : "出国時刻"}
+                  aria-label={lang === "ko" ? "출발 시간" : "出発時刻"}
                   type="time"
                   value={profile.departureTime ?? ""}
                   onChange={(e) => setProfile({ ...profile, departureTime: e.target.value })}
                 />
-              </label>
+                </label>
               <label style={{ display: "grid", gap: "6px", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
                 {lang === "ko" ? "출국 공항" : "出発空港"}
                 <select
@@ -1300,6 +1498,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   <option value="GMP_DOM">{lang === "ko" ? "김포공항 국내선" : "金浦空港 国内線"}</option>
                 </select>
               </label>
+              </fieldset>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "22px", gap: "12px" }}>

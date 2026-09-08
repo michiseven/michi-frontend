@@ -40,10 +40,10 @@ describe("chat-only planner entry", () => {
     expect(screen.queryByRole("region", { name: "AI chat planner" })).not.toBeInTheDocument();
   });
 
-  it("links to the NAVER Maps preview page", () => {
+  it("does not expose the development map preview from the user home", () => {
     renderWithI18n(<HomePage />);
 
-    expect(screen.getByRole("link", { name: "地図の表示を確認" })).toHaveAttribute("href", "/map-preview");
+    expect(screen.queryByRole("link", { name: "地図の表示を確認" })).not.toBeInTheDocument();
   });
 
   it("shows only the AI conversation planner for an authenticated user", () => {

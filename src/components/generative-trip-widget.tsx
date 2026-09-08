@@ -112,7 +112,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
               textTransform: "uppercase",
             }}
           >
-            ✨ AI GENERATED ITINERARY
+            ✨ {lang === "ko" ? "AI 맞춤 일정" : "AIのおすすめ旅程"}
           </span>
           <h3 style={{ margin: "2px 0 0", fontSize: "1.2rem", fontWeight: 700 }}>
             {areaName} {lang === "ko" ? "맞춤 여행 동선" : "おすすめルート"}
