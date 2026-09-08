@@ -187,7 +187,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
 
       {/* Mini Interactive Map */}
       {showMap && stops.length > 0 && (
-        <div id="generated-trip-map" style={{ height: "240px", borderBottom: "1px solid #e2e8f0" }}>
+        <div id="generated-trip-map" className="generated-trip-map">
           <NaverMap
             stops={mapStops}
             activeStopId={selectedStopId}

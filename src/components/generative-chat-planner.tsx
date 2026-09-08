@@ -129,13 +129,19 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   // of the place explanation so arrow navigation never jumps the user upward.
   useEffect(() => {
     if (!activeTrip) return;
+    let secondFrame: number | undefined;
     const frame = window.requestAnimationFrame(() => {
-      const panel = itineraryPanelRef.current;
-      const map = panel?.querySelector<HTMLElement>("#generated-trip-map");
-      if (!panel || !map) return;
-      panel.scrollTop = map.offsetTop + map.offsetHeight;
+      secondFrame = window.requestAnimationFrame(() => {
+        const panel = itineraryPanelRef.current;
+        const map = panel?.querySelector<HTMLElement>("#generated-trip-map");
+        if (!panel || !map) return;
+        panel.scrollTop = map.offsetTop + map.offsetHeight;
+      });
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
   }, [activeTrip]);
 
   useEffect(() => {
