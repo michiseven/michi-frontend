@@ -111,6 +111,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
+  const itineraryPanelRef = useRef<HTMLDivElement>(null);
   const [loadingStage, setLoadingStage] = useState<"checking" | "routing" | "waiting">("checking");
   const [inputOrigin, setInputOrigin] = useState<"direct" | "example">("direct");
   const [lastRetry, setLastRetry] = useState<{ message: string; startFreshTrip: boolean } | null>(null);
@@ -123,6 +124,19 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // Keep the route map above the content, but open the panel at the beginning
+  // of the place explanation so arrow navigation never jumps the user upward.
+  useEffect(() => {
+    if (!activeTrip) return;
+    const frame = window.requestAnimationFrame(() => {
+      const panel = itineraryPanelRef.current;
+      const map = panel?.querySelector<HTMLElement>("#generated-trip-map");
+      if (!panel || !map) return;
+      panel.scrollTop = map.offsetTop + map.offsetHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTrip]);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -1318,6 +1332,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         {activeTrip && (
           <div
             className="itinerary-column"
+            ref={itineraryPanelRef}
             style={{
               height: "760px",
               backgroundColor: "#ffffff",
@@ -1328,35 +1343,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               animation: "chatFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                padding: "8px 14px",
-                backgroundColor: "#f8fafc",
-                borderBottom: "1px solid #e2e8f0",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTrip(null)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#64748b",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                ✕ {lang === "ko" ? "동선 패널 닫기" : "プランを閉じる"}
-              </button>
-            </div>
             <GenerativeTripWidget
               trip={activeTrip}
               style={{
