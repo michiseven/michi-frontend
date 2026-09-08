@@ -89,6 +89,17 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         ...style,
       }}
     >
+      {/* The map is the fixed visual anchor for the itinerary. */}
+      {showMap && stops.length > 0 && (
+        <div id="generated-trip-map" className="generated-trip-map">
+          <NaverMap
+            stops={mapStops}
+            activeStopId={selectedStopId}
+            onSelectStop={(id: string) => setActiveStopId(id)}
+          />
+        </div>
+      )}
+
       {/* Header Banner */}
       <div
         style={{
@@ -184,17 +195,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
       <div style={{ padding: "12px 16px 0" }}>
         <SafetyConstraintSummary trip={trip} compact />
       </div>
-
-      {/* Mini Interactive Map */}
-      {showMap && stops.length > 0 && (
-        <div id="generated-trip-map" className="generated-trip-map">
-          <NaverMap
-            stops={mapStops}
-            activeStopId={selectedStopId}
-            onSelectStop={(id: string) => setActiveStopId(id)}
-          />
-        </div>
-      )}
 
       {/* Stops Timeline List */}
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
