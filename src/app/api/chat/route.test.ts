@@ -85,6 +85,7 @@ describe("/api/chat route", () => {
         relaxations: ["meal_cuisine"],
         mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
         mealPreference: "local_specialty",
+        mealCuisine: "korean",
         chatIntent: "trip_summary",
       }),
     });
@@ -96,6 +97,7 @@ describe("/api/chat route", () => {
         relaxations: ["meal_cuisine"],
         mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
         mealPreference: "local_specialty",
+        mealCuisine: "korean",
         chatIntent: "trip_summary",
       }),
     );

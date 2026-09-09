@@ -56,6 +56,7 @@ export async function POST(req: Request) {
       relaxations: body.relaxations,
       mutationTarget: body.mutationTarget,
       mealPreference: body.mealPreference,
+      mealCuisine: body.mealCuisine,
       chatIntent: body.chatIntent,
       threadSecret: createdSecret,
       editToken,

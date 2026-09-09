@@ -619,6 +619,8 @@ export interface ActionChip {
   };
   /** A meal preference that is intentionally not a cuisine hard constraint. */
   mealPreference?: "local_specialty";
+  /** A cuisine selected from a meal clarification chip. */
+  mealCuisine?: "korean" | "japanese" | "chinese" | "western" | "cafe_dessert";
   /** Explicit retry patch; never infer a relaxation from localized chip text. */
   requestPatch?: {
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints">;

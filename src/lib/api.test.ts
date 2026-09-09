@@ -82,6 +82,7 @@ describe("backend trip API contract", () => {
       message: "이 장소를 빼줘",
       mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
       mealPreference: "local_specialty",
+      mealCuisine: "korean",
       relaxations: ["meal_cuisine"],
       chatIntent: "trip_summary",
       signal: new AbortController().signal,
@@ -92,6 +93,7 @@ describe("backend trip API contract", () => {
       message: "이 장소를 빼줘",
       mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
       mealPreference: "local_specialty",
+      mealCuisine: "korean",
       relaxations: ["meal_cuisine"],
       chatIntent: "trip_summary",
     });

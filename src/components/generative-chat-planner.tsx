@@ -189,6 +189,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints"> = [],
     mutationTarget?: ActionChip["mutationTarget"],
     mealPreference?: ActionChip["mealPreference"],
+    mealCuisine?: ActionChip["mealCuisine"],
     chatIntent?: ActionChip["intent"],
   ) {
     if (!textToSend.trim() || isLoading) return;
@@ -242,6 +243,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         ...(relaxations.length > 0 ? { relaxations } : {}),
         ...(mutationTarget ? { mutationTarget } : {}),
         ...(mealPreference ? { mealPreference } : {}),
+        ...(mealCuisine ? { mealCuisine } : {}),
         ...(chatIntent ? { chatIntent } : {}),
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
@@ -1098,13 +1100,14 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                             const relaxations = chip.requestPatch?.relaxations ?? (recoveryRelaxation ? [recoveryRelaxation] : []);
                             const retryMessage = [...messages].reverse().find((candidate) => candidate.role === "user")?.content;
                             void sendMessage(
-                              relaxations.length > 0 || chip.mealPreference
+                              relaxations.length > 0 || chip.mealPreference || chip.mealCuisine
                                 ? (lastRetry?.message ?? retryMessage ?? chip.query)
                                 : chip.query,
                               false,
                               relaxations,
                               chip.mutationTarget,
                               chip.mealPreference,
+                              chip.mealCuisine,
                               chip.intent,
                             );
                           }}

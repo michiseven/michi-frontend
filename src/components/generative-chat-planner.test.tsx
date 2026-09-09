@@ -193,6 +193,30 @@ describe("GenerativeChatPlanner", () => {
     );
   });
 
+  it("resends the original lunch/cafe request with a structured cuisine instead of chip text", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage
+      .mockResolvedValueOnce({
+        threadId: "thread-1",
+        status: "completed",
+        responseMessage: "어떤 식사 종류를 원하시나요?",
+        actionChips: [{ label: "한식", query: "한식으로 추천해줘", type: "meal", mealCuisine: "korean" }],
+      })
+      .mockResolvedValueOnce({ threadId: "thread-1", status: "completed", responseMessage: "일정을 만들었어요." });
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+
+    const original = "홍대에서 13시부터 18시까지 점심 먹고 카페와 산책하고 싶어";
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: original } });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    fireEvent.click(await screen.findByRole("button", { name: "한식" }));
+
+    await screen.findByText("일정을 만들었어요.");
+    expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith(
+      "thread-1",
+      expect.objectContaining({ message: original, mealCuisine: "korean" }),
+    );
+  });
+
   it("puts an unsafe theme edit suggestion in the composer without sending a hidden retry", async () => {
     apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
     apiMocks.sendChatMessage.mockResolvedValueOnce({
