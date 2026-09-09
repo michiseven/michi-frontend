@@ -1083,6 +1083,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                           key={`${chip.label}-${idx}`}
                           type="button"
                           onClick={() => {
+                            if (chip.requiresUserEdit) {
+                              setInput(chip.query);
+                              setInputOrigin("direct");
+                              return;
+                            }
                             const recoveryId = chip.type?.startsWith("recovery:")
                               ? chip.type.slice("recovery:".length)
                               : null;

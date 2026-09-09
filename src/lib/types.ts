@@ -623,6 +623,8 @@ export interface ActionChip {
   requestPatch?: {
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints">;
   };
+  /** This suggestion changes an explicit user condition and must not auto-retry. */
+  requiresUserEdit?: boolean;
   /** A structured action that operates on the current chat trip. */
   intent?: "trip_summary";
 }

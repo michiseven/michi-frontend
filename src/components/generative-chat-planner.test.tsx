@@ -193,6 +193,29 @@ describe("GenerativeChatPlanner", () => {
     );
   });
 
+  it("puts an unsafe theme edit suggestion in the composer without sending a hidden retry", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockResolvedValueOnce({
+      threadId: "thread-1",
+      status: "failed",
+      responseMessage: "테마를 수정해 주세요.",
+      actionChips: [{
+        label: "테마를 수정하기",
+        query: "테마를 바꿔서 다시 일정 짜줘",
+        type: "refine",
+        requiresUserEdit: true,
+      }],
+    });
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "홍대 산책 일정 짜줘" } });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    fireEvent.click(await screen.findByRole("button", { name: "테마를 수정하기" }));
+
+    expect(apiMocks.sendChatMessage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("textbox")).toHaveValue("테마를 바꿔서 다시 일정 짜줘");
+  });
+
   it("offers cancellation while a recommendation is being generated", async () => {
     apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
     apiMocks.sendChatMessage.mockImplementation(
