@@ -87,6 +87,10 @@ describe("/api/chat route", () => {
         mealPreference: "local_specialty",
         mealCuisine: "korean",
         chatIntent: "trip_summary",
+        requestId: "request-1",
+        questionId: "meal-choice-1",
+        optionId: "korean",
+        expectedRevision: 3,
       }),
     });
 
@@ -99,6 +103,10 @@ describe("/api/chat route", () => {
         mealPreference: "local_specialty",
         mealCuisine: "korean",
         chatIntent: "trip_summary",
+        requestId: "request-1",
+        questionId: "meal-choice-1",
+        optionId: "korean",
+        expectedRevision: 3,
       }),
     );
   });

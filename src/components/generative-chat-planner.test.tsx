@@ -63,7 +63,13 @@ describe("GenerativeChatPlanner", () => {
     expect(screen.getByRole("button", { name: /아이를 포함한 가족 4명이 토요일 10~16시/ })).toBeInTheDocument();
   });
 
-  it("updates the untouched welcome message when the locale changes", async () => {
+  it("keeps the welcome message aligned with the locale after the conversation starts", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockResolvedValue({
+      threadId: "thread-1",
+      status: "completed",
+      responseMessage: "旅程を確認しています。",
+    });
     render(
       <I18nProvider>
         <GenerativeChatPlanner />
@@ -71,6 +77,9 @@ describe("GenerativeChatPlanner", () => {
     );
 
     expect(screen.getByText(/エリア・過ごせる時間・人数だけでも/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "弘大を歩きたい" } });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    await screen.findByText("旅程を確認しています。");
     resetLanguage("ko");
 
     expect(await screen.findByText(/지역·시간·인원만 알려주셔도/)).toBeInTheDocument();
@@ -200,7 +209,21 @@ describe("GenerativeChatPlanner", () => {
         threadId: "thread-1",
         status: "completed",
         responseMessage: "어떤 식사 종류를 원하시나요?",
-        actionChips: [{ label: "한식", query: "한식으로 추천해줘", type: "meal", mealCuisine: "korean" }],
+        pendingQuestion: {
+          id: "meal-choice-1",
+          target: "meal",
+          reason: "meal_choice_required",
+          revision: 3,
+          options: [{ id: "korean", mealCuisine: "korean" }],
+        },
+        actionChips: [{
+          label: "한식",
+          query: "한식으로 추천해줘",
+          type: "meal",
+          mealCuisine: "korean",
+          questionId: "meal-choice-1",
+          optionId: "korean",
+        }],
       })
       .mockResolvedValueOnce({ threadId: "thread-1", status: "completed", responseMessage: "일정을 만들었어요." });
     render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
@@ -213,7 +236,14 @@ describe("GenerativeChatPlanner", () => {
     await screen.findByText("일정을 만들었어요.");
     expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith(
       "thread-1",
-      expect.objectContaining({ message: original, mealCuisine: "korean" }),
+      expect.objectContaining({
+        message: original,
+        mealCuisine: "korean",
+        questionId: "meal-choice-1",
+        optionId: "korean",
+        expectedRevision: 3,
+        requestId: expect.any(String),
+      }),
     );
   });
 

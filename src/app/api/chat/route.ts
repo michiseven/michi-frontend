@@ -58,6 +58,10 @@ export async function POST(req: Request) {
       mealPreference: body.mealPreference,
       mealCuisine: body.mealCuisine,
       chatIntent: body.chatIntent,
+      requestId: body.requestId,
+      questionId: body.questionId,
+      optionId: body.optionId,
+      expectedRevision: body.expectedRevision,
       threadSecret: createdSecret,
       editToken,
     });

@@ -611,6 +611,9 @@ export interface ActionChip {
   label: string;
   query: string;
   type?: string;
+  /** Identifies the server-side question and option represented by this chip. */
+  questionId?: string;
+  optionId?: string;
   /** Identifies the exact itinerary stop selected by a structured chat action. */
   mutationTarget?: {
     stopId: string;
@@ -631,6 +634,18 @@ export interface ActionChip {
   intent?: "trip_summary";
 }
 
+export interface PendingChatQuestion {
+  id: string;
+  target: "meal";
+  reason: "meal_choice_required";
+  revision: number;
+  options: Array<{
+    id: string;
+    mealPreference?: "local_specialty";
+    mealCuisine?: "korean" | "japanese" | "chinese" | "western" | "cafe_dessert";
+  }>;
+}
+
 export type ChatRunStatus =
   "completed" | "awaiting_confirmation" | "rejected" | "failed";
 
@@ -647,6 +662,7 @@ export interface ChatResponse {
   responseMessage: string;
   actionChips?: ActionChip[];
   pendingAction?: PendingTripMutation | null;
+  pendingQuestion?: PendingChatQuestion | null;
   alternatives?: ReplacementCandidate[];
   verifiedPlaceFacts?: VerifiedPlaceFacts | null;
   resultTripId?: string | null;

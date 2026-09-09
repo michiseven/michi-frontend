@@ -85,6 +85,10 @@ describe("backend trip API contract", () => {
       mealCuisine: "korean",
       relaxations: ["meal_cuisine"],
       chatIntent: "trip_summary",
+      requestId: "request-1",
+      questionId: "meal-choice-1",
+      optionId: "korean",
+      expectedRevision: 3,
       signal: new AbortController().signal,
     });
 
@@ -96,6 +100,10 @@ describe("backend trip API contract", () => {
       mealCuisine: "korean",
       relaxations: ["meal_cuisine"],
       chatIntent: "trip_summary",
+      requestId: "request-1",
+      questionId: "meal-choice-1",
+      optionId: "korean",
+      expectedRevision: 3,
     });
     expect(JSON.parse(init.body as string)).not.toHaveProperty("signal");
   });

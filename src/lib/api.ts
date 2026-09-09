@@ -814,6 +814,12 @@ export async function sendChatMessage(
     mealPreference?: "local_specialty";
     mealCuisine?: "korean" | "japanese" | "chinese" | "western" | "cafe_dessert";
     chatIntent?: "trip_summary";
+    /** Idempotency key for this user turn. */
+    requestId?: string;
+    /** Structured clarification answer; validated against server checkpoint state. */
+    questionId?: string;
+    optionId?: string;
+    expectedRevision?: number;
     /** The exact itinerary stop selected by a structured chat action. */
     mutationTarget?: { stopId: string; stopOrder: number; placeName?: string } | null;
     threadSecret?: string;

@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n";
 import type {
   ActionChip,
   PendingTripMutation,
+  PendingChatQuestion,
   ReplacementCandidate,
   SearchHotelItem,
   SafetyConstraint,
@@ -32,6 +33,7 @@ export interface ChatMessage {
   actionChips?: ActionChip[];
   status?: "completed" | "awaiting_confirmation" | "rejected" | "failed";
   pendingAction?: PendingTripMutation | null;
+  pendingQuestion?: PendingChatQuestion | null;
   alternatives?: ReplacementCandidate[];
   verifiedPlaceFacts?: VerifiedPlaceFacts | null;
   resultTrip?: Trip | null;
@@ -191,6 +193,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     mealPreference?: ActionChip["mealPreference"],
     mealCuisine?: ActionChip["mealCuisine"],
     chatIntent?: ActionChip["intent"],
+    structuredChoice?: {
+      questionId: string;
+      optionId: string;
+      expectedRevision?: number;
+    },
   ) {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
@@ -245,6 +252,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         ...(mealPreference ? { mealPreference } : {}),
         ...(mealCuisine ? { mealCuisine } : {}),
         ...(chatIntent ? { chatIntent } : {}),
+        requestId: userMessage.id,
+        ...(structuredChoice ?? {}),
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
         signal: abortController.signal,
@@ -270,6 +279,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         actionChips: res.actionChips,
         status: res.status,
         pendingAction: res.pendingAction,
+        pendingQuestion: res.pendingQuestion,
         alternatives: res.alternatives,
         verifiedPlaceFacts: res.verifiedPlaceFacts,
         resultTrip: res.resultTrip,
@@ -767,8 +777,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           >
             {messages.map((message) => {
               const isUser = message.role === "user";
-              // 첫 안내만 현재 locale에서 다시 읽는다. 시작 뒤의 대화는 사용자가 본 기록이므로 그대로 둔다.
-              const displayContent = message.id === "welcome-message" && messages.length === 1 ? t.plannerWelcome : message.content;
+              // The welcome message belongs to the current UI locale even after the
+              // conversation starts. Keeping its initial string mixed Korean and
+              // Japanese in the same chat after a language switch.
+              const displayContent =
+                message.id === "welcome-message" ? t.plannerWelcome : message.content;
               const webEvidence = message.verifiedPlaceFacts?.webEvidence;
               const webSources = webEvidence
                 ? [
@@ -1109,6 +1122,13 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                               chip.mealPreference,
                               chip.mealCuisine,
                               chip.intent,
+                              chip.questionId && chip.optionId
+                                ? {
+                                    questionId: chip.questionId,
+                                    optionId: chip.optionId,
+                                    expectedRevision: message.pendingQuestion?.revision,
+                                  }
+                                : undefined,
                             );
                           }}
                           style={{
