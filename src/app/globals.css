@@ -66,7 +66,7 @@ button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 .header-inner, .page-shell, .site-footer {
-  width: min(100% - 32px, 1280px);
+  width: min(100% - 32px, 1440px);
   margin-inline: auto;
 }
 
@@ -80,7 +80,7 @@ button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
 
 .page-shell { min-height: calc(100vh - 180px); padding-block: 32px 72px; }
 .page-narrow { width: min(100%, 760px); margin-inline: auto; }
-.page-wide { width: min(100%, 1240px); margin-inline: auto; }
+.page-wide { width: min(100%, 1400px); margin-inline: auto; }
 
 .chat-single-layout {
   max-width: 680px;
@@ -98,17 +98,26 @@ button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
   animation: chatFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.itinerary-column .generated-trip-map {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  height: 240px;
+.itinerary-column .generative-trip-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
+}
+
+.itinerary-column .generated-trip-map {
+  flex: 0 0 240px;
+  height: 240px;
   border-bottom: 1px solid #e2e8f0;
   background: var(--surface);
 }
 .itinerary-column .generated-trip-map .map-frame { min-height: 240px; border: 0; border-radius: 0; }
 .itinerary-column .generated-trip-map .map-canvas { height: 240px; }
+.itinerary-column .generative-trip-details {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
 
 @keyframes chatFadeIn {
   from {

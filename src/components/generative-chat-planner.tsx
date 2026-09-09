@@ -111,7 +111,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
-  const itineraryPanelRef = useRef<HTMLDivElement>(null);
   const [loadingStage, setLoadingStage] = useState<"checking" | "routing" | "waiting">("checking");
   const [inputOrigin, setInputOrigin] = useState<"direct" | "example">("direct");
   const [lastRetry, setLastRetry] = useState<{ message: string; startFreshTrip: boolean } | null>(null);
@@ -124,25 +123,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, isLoading]);
-
-  // Keep the route map above the content, but open the panel at the beginning
-  // of the place explanation so arrow navigation never jumps the user upward.
-  useEffect(() => {
-    if (!activeTrip) return;
-    let secondFrame: number | undefined;
-    const frame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        const panel = itineraryPanelRef.current;
-        const map = panel?.querySelector<HTMLElement>("#generated-trip-map");
-        if (!panel || !map) return;
-        panel.scrollTop = map.offsetTop + map.offsetHeight;
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      if (secondFrame) window.cancelAnimationFrame(secondFrame);
-    };
-  }, [activeTrip]);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -1326,13 +1306,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         {activeTrip && (
           <div
             className="itinerary-column"
-            ref={itineraryPanelRef}
             style={{
               height: "760px",
               backgroundColor: "#ffffff",
               borderRadius: "20px",
               border: "1.5px solid #e2e8f0",
-              overflowY: "auto",
+              overflow: "hidden",
               boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
               animation: "chatFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
             }}

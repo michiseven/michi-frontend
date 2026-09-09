@@ -100,8 +100,10 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         </div>
       )}
 
-      {/* Header Banner */}
-      <div
+      {/* Only the place details scroll. The map remains a separate visual anchor. */}
+      <div className="generative-trip-details">
+        {/* Header Banner */}
+        <div
         style={{
           background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
           color: "#ffffff",
@@ -112,7 +114,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
           flexWrap: "wrap",
           gap: "8px",
         }}
-      >
+        >
         <div>
           <span
             style={{
@@ -143,10 +145,10 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
             📍 {stops.length} {lang === "ko" ? "개 장소" : "スポット"}
           </span>
         </div>
-      </div>
+        </div>
 
-      {/* Total Cost Bar */}
-      <div
+        {/* Total Cost Bar */}
+        <div
         style={{
           backgroundColor: "#f8fafc",
           borderBottom: "1px solid #e2e8f0",
@@ -158,7 +160,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
           gap: "8px",
           fontSize: "0.9rem",
         }}
-      >
+        >
         <span style={{ color: "#64748b", fontWeight: 500 }}>
           💰 {trip.estimatedTotalCost != null ? (lang === "ko" ? "예상 총비용 (1인 기준)" : "予想合計費用 (1人基準)") : (lang === "ko" ? "확인된 예상 비용" : "確認済み予想費用")}{" "}
           <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
@@ -190,14 +192,14 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
             </span>
           )}
         </span>
-      </div>
+        </div>
 
-      <div style={{ padding: "12px 16px 0" }}>
-        <SafetyConstraintSummary trip={trip} compact />
-      </div>
+        <div style={{ padding: "12px 16px 0" }}>
+          <SafetyConstraintSummary trip={trip} compact />
+        </div>
 
-      {/* Stops Timeline List */}
-      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        {/* Stops Timeline List */}
+        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
         {arrivalTransfers.map((transfer) => (
           <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
         ))}
@@ -241,17 +243,17 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         {departureTransfers.map((transfer) => (
           <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
         ))}
-      </div>
+        </div>
 
-      {/* Footer Link */}
-      <div
+        {/* Footer Link */}
+        <div
         style={{
           padding: "12px 20px",
           backgroundColor: "#f8fafc",
           borderTop: "1px solid #e2e8f0",
           textAlign: "center",
         }}
-      >
+        >
         <Link
           href={`/trips/${trip.id}`}
           className="button button-primary"
@@ -259,6 +261,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
         >
           {lang === "ko" ? "👉 전체 일정 상세 및 저장 페이지로 이동" : "👉 詳細プラン・保存画面へ移動"}
         </Link>
+        </div>
       </div>
     </div>
   );
