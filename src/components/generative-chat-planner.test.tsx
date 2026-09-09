@@ -114,6 +114,37 @@ describe("GenerativeChatPlanner", () => {
     );
   });
 
+  it("sends an action chip's structured stop target back to the chat API", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage
+      .mockResolvedValueOnce({
+        threadId: "thread-1",
+        status: "completed",
+        responseMessage: "어느 장소를 바꿀까요?",
+        actionChips: [{
+          label: "서울숲 빼기",
+          query: "서울숲을 빼줘",
+          type: "mutation:remove",
+          mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+        }],
+      })
+      .mockResolvedValueOnce({ threadId: "thread-1", status: "completed", responseMessage: "서울숲을 뺐어요." });
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "장소를 바꾸고 싶어" } });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    fireEvent.click(await screen.findByRole("button", { name: "서울숲 빼기" }));
+
+    await screen.findByText("서울숲을 뺐어요.");
+    expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith(
+      "thread-1",
+      expect.objectContaining({
+        message: "서울숲을 빼줘",
+        mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+      }),
+    );
+  });
+
   it("offers cancellation while a recommendation is being generated", async () => {
     apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
     apiMocks.sendChatMessage.mockImplementation(

@@ -187,6 +187,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     textToSend: string,
     startFreshTrip = false,
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints"> = [],
+    mutationTarget?: ActionChip["mutationTarget"],
   ) {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
@@ -237,6 +238,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         },
         ...(startFreshTrip ? { startFreshTrip: true, profilePolicy: "ignore" as const } : {}),
         ...(relaxations.length > 0 ? { relaxations } : {}),
+        ...(mutationTarget ? { mutationTarget } : {}),
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
         signal: abortController.signal,
@@ -1088,6 +1090,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                               relaxation ? (lastRetry?.message ?? chip.query) : chip.query,
                               false,
                               relaxation ? [relaxation] : [],
+                              chip.mutationTarget,
                             );
                           }}
                           style={{

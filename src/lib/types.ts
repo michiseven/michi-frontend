@@ -611,6 +611,12 @@ export interface ActionChip {
   label: string;
   query: string;
   type?: string;
+  /** Identifies the exact itinerary stop selected by a structured chat action. */
+  mutationTarget?: {
+    stopId: string;
+    stopOrder: number;
+    placeName?: string;
+  };
 }
 
 export type ChatRunStatus =

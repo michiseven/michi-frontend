@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, generateTrip, getProfile } from "./api";
+import { ApiError, generateTrip, getProfile, sendChatMessage } from "./api";
 import { getAccessToken, setAccessToken } from "./auth";
 
 const wireTrip = {
@@ -69,6 +69,29 @@ const wireTrip = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("backend trip API contract", () => {
+  it("transports an action chip mutation target while keeping its abort signal browser-only", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ threadId: "thread-1", status: "completed", responseMessage: "처리했어요." }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendChatMessage("thread-1", {
+      message: "이 장소를 빼줘",
+      mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+      signal: new AbortController().signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      message: "이 장소를 빼줘",
+      mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+    });
+    expect(JSON.parse(init.body as string)).not.toHaveProperty("signal");
+  });
+
   it("accepts the canonical trip envelope without renaming fields", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
