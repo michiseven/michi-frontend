@@ -1049,14 +1049,14 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                         }}
                       >
                         {activeTrip?.id === message.resultTrip.id
-                          ? (lang === "ko" ? "👉 우측 동선 보기" : "👉 右側で表示中")
-                          : (lang === "ko" ? "동선 선택" : "選択")}
+                          ? (lang === "ko" ? "👉 지도 보고 있어요" : "👉 地図を表示中")
+                          : (lang === "ko" ? "지도 보기" : "地図を見る")}
                       </span>
                     </div>
                     <p style={{ maxWidth: "88%", margin: "7px 0 0", color: "#64748b", fontSize: "0.78rem", lineHeight: 1.45 }}>
                       {lang === "ko"
-                        ? "장소·예상 비용·이동을 확인할 수 있어요. 바꾸고 싶은 조건이 있으면 채팅으로 알려주세요."
-                        : "スポット・目安の費用・移動を確認できます。変えたい条件があればチャットで教えてください。"}
+                        ? "장소와 예상 비용은 이 대화에서 확인하고, 오른쪽 큰 지도에서 동선을 살펴보세요. 바꾸고 싶은 조건은 채팅으로 알려주세요."
+                        : "スポットと目安の費用はこの会話で確認し、右側の大きな地図でルートを見てください。変更したい条件はチャットで教えてください。"}
                     </p>
                     </>
                   )}

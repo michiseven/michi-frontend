@@ -18,7 +18,7 @@ interface GenerativeTripWidgetProps {
 }
 
 export function GenerativeTripWidget({ trip: initialTrip, className, style }: GenerativeTripWidgetProps) {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const [modifiedTrip, setModifiedTrip] = useState<Trip | null>(null);
   const showMap = true;
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
@@ -41,8 +41,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
   const departureTransfers = airportTransfers.filter(
     (transfer) => transfer.role === "departure",
   );
-  const areaName = (trip.preference as { area?: string })?.area || "서울";
-  const currency = new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "ja-JP");
 
   const mapStops = useMemo(
     () =>
@@ -55,14 +53,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
     [stops, lang],
   );
 
-  const knownCostSum = useMemo(
-    () => stops.reduce((sum, s) => sum + (s.estimatedCost ?? 0), 0),
-    [stops],
-  );
-  const unpricedStopsCount = useMemo(
-    () => stops.filter((s) => s.estimatedCost == null).length,
-    [stops],
-  );
   const selectedStopId = activeStopId ?? stops[0]?.id ?? null;
 
   const handleSwapPlace = async (stopId: string, newPlaceId: string) => {
@@ -102,98 +92,6 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
 
       {/* Only the place details scroll. The map remains a separate visual anchor. */}
       <div className="generative-trip-details">
-        {/* Header Banner */}
-        <div
-        style={{
-          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-          color: "#ffffff",
-          padding: "16px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "8px",
-        }}
-        >
-        <div>
-          <span
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              color: "#38bdf8",
-              textTransform: "uppercase",
-            }}
-          >
-            ✨ {lang === "ko" ? "AI 맞춤 일정" : "AIのおすすめ旅程"}
-          </span>
-          <h3 style={{ margin: "2px 0 0", fontSize: "1.2rem", fontWeight: 700 }}>
-            {areaName} {lang === "ko" ? "맞춤 여행 동선" : "おすすめルート"}
-          </h3>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.15)",
-              padding: "4px 10px",
-              borderRadius: "20px",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-            }}
-          >
-            📍 {stops.length} {lang === "ko" ? "개 장소" : "スポット"}
-          </span>
-        </div>
-        </div>
-
-        {/* Total Cost Bar */}
-        <div
-        style={{
-          backgroundColor: "#f8fafc",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "10px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "8px",
-          fontSize: "0.9rem",
-        }}
-        >
-        <span style={{ color: "#64748b", fontWeight: 500 }}>
-          💰 {trip.estimatedTotalCost != null ? (lang === "ko" ? "예상 총비용 (1인 기준)" : "予想合計費用 (1人基準)") : (lang === "ko" ? "확인된 예상 비용" : "確認済み予想費用")}{" "}
-          <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
-            {trip.estimatedTotalCost != null
-              ? t.totalBudgetMaxNote
-              : unpricedStopsCount > 0
-                ? (lang === "ko" ? `(일부 ${unpricedStopsCount}개 장소 가격 미기재 / 현장 확인)` : `(一部${unpricedStopsCount}ヶ所現地確認)`)
-                : ""}
-          </span>
-        </span>
-        <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "1.05rem" }}>
-          {trip.estimatedTotalCost != null ? (
-            <>
-              {currency.format(trip.estimatedTotalCost)} {lang === "ko" ? "원" : "ウォン"}
-              <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "#64748b", marginLeft: "6px" }}>
-                (約 {currency.format(Math.round(trip.estimatedTotalCost * 0.11))}円)
-              </span>
-            </>
-          ) : knownCostSum > 0 ? (
-            <>
-              {lang === "ko" ? `최소 ${currency.format(knownCostSum)}원 ~` : `最低 ${currency.format(knownCostSum)}ウォン〜`}
-              <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "#64748b", marginLeft: "6px" }}>
-                (約 {currency.format(Math.round(knownCostSum * 0.11))}円〜)
-              </span>
-            </>
-          ) : (
-            <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "#64748b" }}>
-              {lang === "ko" ? "일부 장소 상세/현장 확인" : "詳細・現地確認"}
-            </span>
-          )}
-        </span>
-        </div>
-
         <div style={{ padding: "12px 16px 0" }}>
           <SafetyConstraintSummary trip={trip} compact />
         </div>

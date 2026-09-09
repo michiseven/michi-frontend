@@ -106,13 +106,13 @@ button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 .itinerary-column .generated-trip-map {
-  flex: 0 0 240px;
-  height: 240px;
+  flex: 0 0 400px;
+  height: 400px;
   border-bottom: 1px solid #e2e8f0;
   background: var(--surface);
 }
-.itinerary-column .generated-trip-map .map-frame { min-height: 240px; border: 0; border-radius: 0; }
-.itinerary-column .generated-trip-map .map-canvas { height: 240px; }
+.itinerary-column .generated-trip-map .map-frame { min-height: 400px; border: 0; border-radius: 0; }
+.itinerary-column .generated-trip-map .map-canvas { height: 400px; }
 .itinerary-column .generative-trip-details {
   min-height: 0;
   flex: 1;
