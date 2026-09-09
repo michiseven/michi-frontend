@@ -20,20 +20,20 @@ export interface QuickPrompt {
 export const QUICK_PROMPTS: Record<Language, QuickPrompt[]> = {
   ja: [
     {
-      id: "seongsu",
-      title: "聖水 カフェ＆セレクトショップ",
-      area: "聖水",
+      id: "hongdae-friends-half-day",
+      title: "弘大 友人と半日コース",
+      area: "弘大",
       prompt:
-        "聖水で一人で過ごしたい。静かなカフェとセレクトショップが好きで、夜は美味しいお肉を食べたい。",
-      budget: 80000,
+        "弘大で友人3人と土曜日13〜18時に、カフェと夕食を楽しみたい。",
+      budget: 60000,
     },
     {
-      id: "gongdeok",
-      title: "麻浦・孔徳 ローカルグルメ巡り",
-      area: "孔徳",
+      id: "seoul-forest-family-daytime",
+      title: "子ども連れ 昼のソウルの森コース",
+      area: "ソウルの森",
       prompt:
-        "孔徳・麻浦エリアでローカルな美味しい韓国料理とカフェ巡りをしたい。混雑を避けてゆっくり楽しみたい。",
-      budget: 70000,
+        "子どもを含む家族4人で土曜日10〜16時に、ソウルの森周辺をベビーカーで移動しやすい昼食と室内コースで過ごしたい。",
+      budget: 80000,
     },
     {
       id: "jongno",
@@ -54,20 +54,20 @@ export const QUICK_PROMPTS: Record<Language, QuickPrompt[]> = {
   ],
   ko: [
     {
-      id: "seongsu",
-      title: "성수 감성 카페 & 편집숍",
-      area: "성수",
+      id: "hongdae-friends-half-day",
+      title: "홍대 친구와 반나절 코스",
+      area: "홍대",
       prompt:
-        "성수동에서 혼자 여유롭게 시간을 보내고 싶어요. 조용한 카페와 디자이너 편집숍을 둘러보고 저녁엔 맛있는 고기를 먹고 싶습니다.",
-      budget: 80000,
+        "홍대에서 친구 3명과 토요일 13~18시에 카페와 저녁을 즐기고 싶어요.",
+      budget: 60000,
     },
     {
-      id: "gongdeok",
-      title: "마포·공덕 로컬 미식 탐방",
-      area: "공덕",
+      id: "seoul-forest-family-daytime",
+      title: "아이 동반 낮 시간 서울숲 코스",
+      area: "서울숲",
       prompt:
-        "공덕과 마포 일대에서 로컬 맛집과 분위기 좋은 카페를 탐방하고 싶어요. 과밀한 곳을 피해 여유로운 동선을 원합니다.",
-      budget: 70000,
+        "아이를 포함한 가족 4명이 토요일 10~16시에 서울숲 주변에서 유모차로 이동하기 편한 점심과 실내 코스를 보내고 싶어요.",
+      budget: 80000,
     },
     {
       id: "jongno",
@@ -361,6 +361,9 @@ export const DICTIONARY = {
     authStartLoginCta: "ログイン",
     plannerWelcome: "こんにちは！ソウル専門AIトラベルプランナーのMichiです。🇰🇷✨\nエリア・過ごせる時間・人数だけでも、まずは教えてください。予算や好きな雰囲気を足すと、よりぴったりの候補をお出しします。",
     plannerQuickStartHint: "エリア・時間・人数だけでも始められます。空港・ホテル・荷物は必要なときだけ追加してください。",
+    plannerFirstRequestLabel: "一文で始めましょう：エリア・誰と・時間・したいこと",
+    plannerFirstRequestExample: "例：弘大、友人3人、土曜日13〜18時、カフェと夕食",
+    plannerExamplesHeading: "状況に合う例を選ぶ",
     plannerTravelConditions: "旅行条件（任意）",
     plannerTravelConditionsOpen: "旅行条件を開く",
     plannerTravelConditionsClose: "旅行条件を閉じる",
@@ -701,6 +704,9 @@ export const DICTIONARY = {
     authStartLoginCta: "로그인",
     plannerWelcome: "안녕하세요! 서울 여행 전문 AI 플래너 Michi입니다. 🇰🇷✨\n지역·시간·인원만 알려주셔도 먼저 시작할 수 있어요. 예산이나 좋아하는 분위기를 더하면 더 잘 맞는 후보를 안내해 드릴게요.",
     plannerQuickStartHint: "지역·시간·인원만 말해도 시작할 수 있어요. 공항·숙소·짐은 필요할 때만 추가하세요.",
+    plannerFirstRequestLabel: "한 줄로 시작하세요: 지역 · 누구와 · 시간 · 하고 싶은 일",
+    plannerFirstRequestExample: "예: 홍대, 친구 3명, 토요일 13~18시, 카페와 저녁",
+    plannerExamplesHeading: "상황에 맞는 예시로 시작하기",
     plannerTravelConditions: "여행 조건 (선택)",
     plannerTravelConditionsOpen: "여행 조건 열기",
     plannerTravelConditionsClose: "여행 조건 닫기",

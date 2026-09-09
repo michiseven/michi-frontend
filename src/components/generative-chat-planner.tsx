@@ -79,7 +79,7 @@ function generateMessageId(prefix: string): string {
 }
 
 export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginCompletedAt, loginCancelledAt, initialIntent }: GenerativeChatPlannerProps) {
-  const { lang, t } = useI18n();
+  const { lang, t, quickPrompts } = useI18n();
   const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingMessageAfterLoginRef = useRef<string | null>(null);
@@ -169,20 +169,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     if (loginCancelledAt) pendingMessageAfterLoginRef.current = null;
   }, [loginCancelledAt]);
 
-  const quickPrompts =
-    lang === "ko"
-      ? [
-          "☕ 내일 혼자 성수에서 5만원으로 조용한 카페와 저녁 삼겹살",
-          "🏯 경복궁 & 서촌 한옥마을 반나절 산책 코스",
-          "🛍️ 혼자 홍대·연남동에서 맛집 탐방과 쇼핑",
-          "🍜 명동교자 먹고 을지로 힙지로 투어",
-        ]
-      : [
-          "☕ 明日、一人で聖水で5万ウォン予算の静かなカフェと夜のサムギョプサル",
-          "🏯 景福宮＆西村の韓屋村半日散歩ルート",
-          "🛍️ 一人で弘大・延南洞のグルメ巡りとショッピング",
-          "🍜 明洞餃子を食べて乙支路ヒップジロツアー",
-      ];
   const intentPrompt = initialIntent ? getPlannerIntentPrompt(initialIntent, lang) : null;
 
   async function getOrCreateThreadInfo(): Promise<{ threadId: string; threadSecret: string }> {
@@ -1249,18 +1235,18 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   {t.plannerQuickStartHint}
                 </p>
                 <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#64748b" }}>
-                  💡 {lang === "ko" ? "추천 질문 예시를 눌러보세요" : "おすすめの質問例をタップ"}
+                  💡 {t.plannerExamplesHeading}
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {quickPrompts.map((prompt) => (
+                  {quickPrompts.map((quickPrompt) => (
                     <button
-                      key={prompt}
+                      key={quickPrompt.id}
                       type="button"
                       onClick={() => {
-                        setInput(prompt);
+                        setInput(quickPrompt.prompt);
                         setInputOrigin("example");
                       }}
-                      aria-label={lang === "ko" ? `${prompt} 예시를 입력창에 넣기` : `例文「${prompt}」を入力欄に入れる`}
+                      aria-label={lang === "ko" ? `${quickPrompt.prompt} 예시를 입력창에 넣기` : `例文「${quickPrompt.prompt}」を入力欄に入れる`}
                       style={{
                         backgroundColor: "#ffffff",
                         border: "1px solid #cbd5e1",
@@ -1274,7 +1260,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
                       }}
                     >
-                      {prompt}
+                      {quickPrompt.prompt}
                     </button>
                   ))}
                 </div>
@@ -1291,46 +1277,48 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               padding: "14px 16px",
               backgroundColor: "#ffffff",
               borderTop: "1px solid #e2e8f0",
-              display: "flex",
-              alignItems: "center",
+              display: "grid",
               gap: "8px",
             }}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                lang === "ko"
-                  ? "예: 성수동에서 조용한 카페와 삼겹살 맛집"
-                  : "例：聖水洞でおすすめカフェとサムギョプサル"
-              }
-              disabled={isLoading}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                borderRadius: "24px",
-                border: "1.5px solid #cbd5e1",
-                fontSize: "0.9rem",
-                outline: "none",
-                backgroundColor: "#f8fafc",
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="button button-primary"
-              style={{
-                borderRadius: "24px",
-                padding: "10px 20px",
-                fontWeight: 600,
-                fontSize: "0.9rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {lang === "ko" ? "전송" : "送信"}
-            </button>
+            <p id="planner-first-request-hint" style={{ margin: 0, color: "#475569", fontSize: "0.78rem", lineHeight: 1.45 }}>
+              <strong>{t.plannerFirstRequestLabel}</strong><br />
+              {t.plannerFirstRequestExample}
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                aria-describedby="planner-first-request-hint"
+                placeholder={t.plannerFirstRequestExample}
+                disabled={isLoading}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: "24px",
+                  border: "1.5px solid #cbd5e1",
+                  fontSize: "0.9rem",
+                  outline: "none",
+                  backgroundColor: "#f8fafc",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="button button-primary"
+                style={{
+                  borderRadius: "24px",
+                  padding: "10px 20px",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {lang === "ko" ? "전송" : "送信"}
+              </button>
+            </div>
           </form>
         </div>
 

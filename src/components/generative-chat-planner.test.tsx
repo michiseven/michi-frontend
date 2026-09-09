@@ -47,6 +47,22 @@ describe("GenerativeChatPlanner", () => {
     expect(screen.getByRole("button", { name: /숙소 검색|宿泊先検索/ })).toBeInTheDocument();
   });
 
+  it("shows an input-adjacent minimum request format and situational examples", () => {
+    resetLanguage("ko");
+    render(
+      <I18nProvider>
+        <GenerativeChatPlanner />
+      </I18nProvider>,
+    );
+
+    const input = screen.getByRole("textbox");
+    expect(screen.getByText("한 줄로 시작하세요: 지역 · 누구와 · 시간 · 하고 싶은 일")).toBeInTheDocument();
+    expect(screen.getByText("예: 홍대, 친구 3명, 토요일 13~18시, 카페와 저녁")).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-describedby", "planner-first-request-hint");
+    expect(screen.getByRole("button", { name: /홍대에서 친구 3명과 토요일 13~18시/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /아이를 포함한 가족 4명이 토요일 10~16시/ })).toBeInTheDocument();
+  });
+
   it("updates the untouched welcome message when the locale changes", async () => {
     render(
       <I18nProvider>
@@ -71,7 +87,7 @@ describe("GenerativeChatPlanner", () => {
     const example = screen.getAllByRole("button", { name: /例文.*入力欄に入れる/ })[0]!;
     fireEvent.click(example);
 
-    expect((screen.getByRole("textbox") as HTMLInputElement).value).toContain("聖水");
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toContain("弘大");
     expect(apiMocks.sendChatMessage).not.toHaveBeenCalled();
   });
 

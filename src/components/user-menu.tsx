@@ -10,7 +10,7 @@ import { BookmarkIcon, LogoutIcon, UserIcon } from "./icons";
 import { AuthModal } from "./auth-modal";
 
 export function UserMenu() {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const pathname = usePathname();
   const user = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -76,7 +76,7 @@ export function UserMenu() {
         onClick={() => setMenuOpen(!menuOpen)}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        aria-label={`${user.displayName}のユーザーメニュー`}
+        aria-label={lang === "ko" ? `${user.displayName} 사용자 메뉴` : `${user.displayName}のユーザーメニュー`}
       >
         <span className="user-avatar-badge" aria-hidden="true">
           {initials}

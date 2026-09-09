@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as auth from "@/lib/auth";
-import { I18nProvider } from "@/lib/i18n";
+import { I18nProvider, resetLanguage } from "@/lib/i18n";
 import { UserMenu } from "./user-menu";
 
 const pathnameMock = vi.hoisted(() => ({ value: "/" }));
@@ -15,6 +15,7 @@ describe("UserMenu", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     pathnameMock.value = "/";
+    resetLanguage("ja");
   });
 
   it("should show login button when user is not logged in", () => {
@@ -69,5 +70,24 @@ describe("UserMenu", () => {
     expect(screen.getByText("保存した旅程")).toBeInTheDocument();
     expect(screen.getByText("マイページ")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /ログアウト/ })).toBeInTheDocument();
+  });
+
+  it("localizes the user-menu accessible name when Korean is selected", () => {
+    resetLanguage("ko");
+    vi.spyOn(auth, "useAuth").mockReturnValue({
+      id: "u-1",
+      displayName: "최성현",
+      email: "choe@example.com",
+      locale: "ko",
+      createdAt: "2026-08-27T00:00:00.000Z",
+    });
+
+    render(
+      <I18nProvider>
+        <UserMenu />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "최성현 사용자 메뉴" })).toBeInTheDocument();
   });
 });
