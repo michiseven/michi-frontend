@@ -145,6 +145,54 @@ describe("GenerativeChatPlanner", () => {
     );
   });
 
+  it("retries the original request with a structured recovery patch and local-specialty preference", async () => {
+    apiMocks.createChatThread.mockResolvedValue({
+      threadId: "thread-1",
+      threadSecret: "secret-1",
+    });
+    apiMocks.sendChatMessage
+      .mockResolvedValueOnce({
+        threadId: "thread-1",
+        status: "failed",
+        responseMessage: "조건을 조정해 주세요.",
+        actionChips: [
+          {
+            label: "지역 대표 메뉴",
+            query: "이 지역 명물로 찾아줘",
+            type: "meal",
+            mealPreference: "local_specialty",
+            requestPatch: { relaxations: ["search_radius"] },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        threadId: "thread-1",
+        status: "completed",
+        responseMessage: "다시 만들었어요.",
+      });
+    render(
+      <I18nProvider>
+        <GenerativeChatPlanner />
+      </I18nProvider>,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "성수에서 점심 일정 짜줘" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    fireEvent.click(await screen.findByRole("button", { name: "지역 대표 메뉴" }));
+
+    await screen.findByText("다시 만들었어요.");
+    expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith(
+      "thread-1",
+      expect.objectContaining({
+        message: "성수에서 점심 일정 짜줘",
+        mealPreference: "local_specialty",
+        relaxations: ["search_radius"],
+      }),
+    );
+  });
+
   it("offers cancellation while a recommendation is being generated", async () => {
     apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
     apiMocks.sendChatMessage.mockImplementation(

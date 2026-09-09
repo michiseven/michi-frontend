@@ -188,6 +188,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     startFreshTrip = false,
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints"> = [],
     mutationTarget?: ActionChip["mutationTarget"],
+    mealPreference?: ActionChip["mealPreference"],
+    chatIntent?: ActionChip["intent"],
   ) {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
@@ -239,6 +241,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
         ...(startFreshTrip ? { startFreshTrip: true, profilePolicy: "ignore" as const } : {}),
         ...(relaxations.length > 0 ? { relaxations } : {}),
         ...(mutationTarget ? { mutationTarget } : {}),
+        ...(mealPreference ? { mealPreference } : {}),
+        ...(chatIntent ? { chatIntent } : {}),
         threadSecret: threadInfo.threadSecret,
         editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
         signal: abortController.signal,
@@ -1082,15 +1086,21 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                             const recoveryId = chip.type?.startsWith("recovery:")
                               ? chip.type.slice("recovery:".length)
                               : null;
-                            const relaxation =
+                            const recoveryRelaxation =
                               recoveryId === "meal_cuisine" || recoveryId === "search_radius" || recoveryId === "route_constraints"
                                 ? recoveryId
                                 : null;
+                            const relaxations = chip.requestPatch?.relaxations ?? (recoveryRelaxation ? [recoveryRelaxation] : []);
+                            const retryMessage = [...messages].reverse().find((candidate) => candidate.role === "user")?.content;
                             void sendMessage(
-                              relaxation ? (lastRetry?.message ?? chip.query) : chip.query,
+                              relaxations.length > 0 || chip.mealPreference
+                                ? (lastRetry?.message ?? retryMessage ?? chip.query)
+                                : chip.query,
                               false,
-                              relaxation ? [relaxation] : [],
+                              relaxations,
                               chip.mutationTarget,
+                              chip.mealPreference,
+                              chip.intent,
                             );
                           }}
                           style={{

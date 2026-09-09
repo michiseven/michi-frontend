@@ -81,6 +81,9 @@ describe("backend trip API contract", () => {
     await sendChatMessage("thread-1", {
       message: "이 장소를 빼줘",
       mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+      mealPreference: "local_specialty",
+      relaxations: ["meal_cuisine"],
+      chatIntent: "trip_summary",
       signal: new AbortController().signal,
     });
 
@@ -88,6 +91,9 @@ describe("backend trip API contract", () => {
     expect(JSON.parse(init.body as string)).toMatchObject({
       message: "이 장소를 빼줘",
       mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+      mealPreference: "local_specialty",
+      relaxations: ["meal_cuisine"],
+      chatIntent: "trip_summary",
     });
     expect(JSON.parse(init.body as string)).not.toHaveProperty("signal");
   });

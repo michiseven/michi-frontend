@@ -617,6 +617,14 @@ export interface ActionChip {
     stopOrder: number;
     placeName?: string;
   };
+  /** A meal preference that is intentionally not a cuisine hard constraint. */
+  mealPreference?: "local_specialty";
+  /** Explicit retry patch; never infer a relaxation from localized chip text. */
+  requestPatch?: {
+    relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints">;
+  };
+  /** A structured action that operates on the current chat trip. */
+  intent?: "trip_summary";
 }
 
 export type ChatRunStatus =

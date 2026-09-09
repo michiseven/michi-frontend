@@ -51,6 +51,12 @@ export async function POST(req: Request) {
       locale: body.locale,
       currentTripId: body.currentTripId || body.currentTrip?.id,
       profile: body.profile,
+      startFreshTrip: body.startFreshTrip,
+      profilePolicy: body.profilePolicy,
+      relaxations: body.relaxations,
+      mutationTarget: body.mutationTarget,
+      mealPreference: body.mealPreference,
+      chatIntent: body.chatIntent,
       threadSecret: createdSecret,
       editToken,
     });

@@ -811,6 +811,8 @@ export async function sendChatMessage(
     profilePolicy?: "apply" | "ignore";
     /** A user-selected, explicit condition relaxation after a failed recommendation. */
     relaxations?: Array<"meal_cuisine" | "search_radius" | "route_constraints">;
+    mealPreference?: "local_specialty";
+    chatIntent?: "trip_summary";
     /** The exact itinerary stop selected by a structured chat action. */
     mutationTarget?: { stopId: string; stopOrder: number; placeName?: string } | null;
     threadSecret?: string;

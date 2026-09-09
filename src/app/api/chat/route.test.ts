@@ -66,6 +66,41 @@ describe("/api/chat route", () => {
     expect(data.actionChips.length).toBeGreaterThan(0);
   });
 
+  it("forwards canonical structured action fields without dropping retry or target data", async () => {
+    vi.spyOn(api, "createChatThread").mockResolvedValue({
+      threadId: "thread-structured-1",
+      threadSecret: "secret-structured-1",
+    });
+    const sendSpy = vi.spyOn(api, "sendChatMessage").mockResolvedValue({
+      threadId: "thread-structured-1",
+      status: "completed",
+      responseMessage: "ok",
+    });
+
+    const req = new Request("http://localhost:3000/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        message: "성수에서 점심 일정 짜줘",
+        locale: "ko",
+        relaxations: ["meal_cuisine"],
+        mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+        mealPreference: "local_specialty",
+        chatIntent: "trip_summary",
+      }),
+    });
+
+    await POST(req);
+    expect(sendSpy).toHaveBeenCalledWith(
+      "thread-structured-1",
+      expect.objectContaining({
+        relaxations: ["meal_cuisine"],
+        mutationTarget: { stopId: "stop-2", stopOrder: 2, placeName: "서울숲" },
+        mealPreference: "local_specialty",
+        chatIntent: "trip_summary",
+      }),
+    );
+  });
+
   it("proxies resume commands to resumeChatThread with editToken and threadSecret", async () => {
     vi.spyOn(api, "resumeChatThread").mockResolvedValue({
       threadId: "thread-test-3",
