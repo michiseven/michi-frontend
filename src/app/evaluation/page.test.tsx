@@ -6,6 +6,9 @@ import {
   type EvaluationResponse,
 } from "@/lib/evaluation-api";
 import { captureMichiEvent } from "@/lib/telemetry";
+import { StoreProvider } from "@/store/provider";
+import { store } from "@/store/store";
+import { evaluationActions } from "@/store/evaluation/evaluation-slice";
 import EvaluationPage from "./page";
 
 vi.mock("@/lib/evaluation-api", async (importOriginal) => {
@@ -193,7 +196,12 @@ describe("evaluation page", () => {
   it("compares six metrics, routes, expected dispersion effect, and traceable sources without telemetry", async () => {
     vi.mocked(compareEvaluation).mockResolvedValue(evaluationFixture);
     const user = userEvent.setup();
-    render(<EvaluationPage />);
+    store.dispatch(evaluationActions.reset());
+    render(
+      <StoreProvider>
+        <EvaluationPage />
+      </StoreProvider>,
+    );
 
     await user.click(
       screen.getByRole("button", { name: "BaselineとMichiを比較" }),
@@ -241,8 +249,12 @@ describe("evaluation page", () => {
     expect(
       screen.getByRole("heading", { name: "測定可能な候補だけの比較" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/データがない場所を「低集中」とは扱いません/)).toBeInTheDocument();
-    expect(screen.getByText("測定可能な候補内の予想分散効果")).toBeInTheDocument();
+    expect(
+      screen.getByText(/データがない場所を「低集中」とは扱いません/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("測定可能な候補内の予想分散効果"),
+    ).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(
       screen.getAllByText(
@@ -258,7 +270,12 @@ describe("evaluation page", () => {
       new Error("評価用データがありません。"),
     );
     const user = userEvent.setup();
-    render(<EvaluationPage />);
+    store.dispatch(evaluationActions.reset());
+    render(
+      <StoreProvider>
+        <EvaluationPage />
+      </StoreProvider>,
+    );
     const request = screen.getByLabelText("比較する旅行条件");
 
     await user.click(

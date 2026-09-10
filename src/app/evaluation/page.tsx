@@ -1,55 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect } from "react";
 import { EnvironmentBanner } from "@/components/environment-banner";
 import { EvaluationComparison } from "@/components/evaluation-comparison";
 import { EvaluationForm } from "@/components/evaluation-form";
 import { useI18n } from "@/lib/i18n";
-import {
-  compareEvaluation,
-  type EvaluationRequest,
-  type EvaluationResponse,
-} from "@/lib/evaluation-api";
+import type { EvaluationRequest } from "@/lib/evaluation-api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { evaluationActions } from "@/store/evaluation/evaluation-slice";
 
 export default function EvaluationPage() {
   const { lang } = useI18n();
-  const [evaluation, setEvaluation] = useState<EvaluationResponse>();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
+  const dispatch = useAppDispatch();
+  const {
+    result: evaluation,
+    isLoading: loading,
+    error,
+  } = useAppSelector((state) => state.evaluation);
 
   async function handleSubmit(input: EvaluationRequest) {
-    setLoading(true);
-    setError(undefined);
-    try {
-      const result = await compareEvaluation(input);
-      setEvaluation(result);
-      window.setTimeout(
-        () =>
-          document
-            .querySelector(".evaluation-result")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-        0,
-      );
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : lang === "ko"
-            ? "평가를 완료하지 못했습니다."
-            : "評価を完了できませんでした。",
-      );
-    } finally {
-      setLoading(false);
-    }
+    dispatch(evaluationActions.comparisonRequested(input));
   }
+
+  useEffect(() => {
+    if (!evaluation || loading) return;
+    document
+      .querySelector(".evaluation-result")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [evaluation, loading]);
 
   return (
     <main className="page-shell evaluation-shell" id="main-content">
       <div className="evaluation-heading">
         <div>
           <p className="eyebrow">CONTEST EVALUATION</p>
-          <h1>{lang === "ko" ? "관광 분산 효과를 동일한 조건에서 비교." : "観光分散効果を、同じ条件で比較。"}</h1>
+          <h1>
+            {lang === "ko"
+              ? "관광 분산 효과를 동일한 조건에서 비교."
+              : "観光分散効果を、同じ条件で比較。"}
+          </h1>
           <p className="lede">
             {lang === "ko"
               ? "일반적인 기준 추천과 Michi를 동일한 장소 후보 스냅샷에서 실행하여, 직접 취향을 유지하며 과밀 관광 수요를 분산하는지 측정합니다."
@@ -82,7 +72,11 @@ export default function EvaluationPage() {
         <div
           className="loading-state evaluation-loading"
           role="status"
-          aria-label={lang === "ko" ? "추천 알고리즘 비교 계산 중" : "推薦アルゴリズムを比較中"}
+          aria-label={
+            lang === "ko"
+              ? "추천 알고리즘 비교 계산 중"
+              : "推薦アルゴリズムを比較中"
+          }
         >
           <div className="skeleton skeleton-title" />
           <div className="skeleton skeleton-card" />

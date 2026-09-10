@@ -1,12 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, resetLanguage } from "@/lib/i18n";
 import { GenerativeChatPlanner } from "./generative-chat-planner";
+import { store } from "@/store/store";
+import { plannerActions } from "@/store/planner/planner-slice";
+
+function render(ui: React.ReactNode) {
+  return baseRender(<Provider store={store}>{ui}</Provider>);
+}
 
 const apiMocks = vi.hoisted(() => ({
   createChatThread: vi.fn(),
   sendChatMessage: vi.fn(),
   resumeChatThread: vi.fn(),
+  cancelChatRun: vi.fn(),
 }));
 const authMock = vi.hoisted(() => ({ useAuth: vi.fn() }));
 
@@ -23,6 +31,7 @@ vi.mock("@/lib/auth", () => ({
 describe("GenerativeChatPlanner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    store.dispatch(plannerActions.reset());
     resetLanguage("ja");
     authMock.useAuth.mockReturnValue({ id: "user-1", displayName: "Michi", email: "michi@example.com" });
   });
@@ -374,9 +383,11 @@ describe("GenerativeChatPlanner", () => {
 
     authMock.useAuth.mockReturnValue({ id: "user-1", displayName: "Michi", email: "michi@example.com" });
     view.rerender(
-      <I18nProvider>
-        <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={1} />
-      </I18nProvider>,
+      <Provider store={store}>
+        <I18nProvider>
+          <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={1} />
+        </I18nProvider>
+      </Provider>,
     );
 
     expect(await screen.findByText("추천을 만들었어요.")).toBeInTheDocument();
@@ -399,15 +410,19 @@ describe("GenerativeChatPlanner", () => {
     expect(onLoginRequired).toHaveBeenCalledOnce();
 
     view.rerender(
-      <I18nProvider>
-        <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={0} loginCancelledAt={1} />
-      </I18nProvider>,
+      <Provider store={store}>
+        <I18nProvider>
+          <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={0} loginCancelledAt={1} />
+        </I18nProvider>
+      </Provider>,
     );
     authMock.useAuth.mockReturnValue({ id: "user-1", displayName: "Michi", email: "michi@example.com" });
     view.rerender(
-      <I18nProvider>
-        <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={2} loginCancelledAt={1} />
-      </I18nProvider>,
+      <Provider store={store}>
+        <I18nProvider>
+          <GenerativeChatPlanner onLoginRequired={onLoginRequired} loginCompletedAt={2} loginCancelledAt={1} />
+        </I18nProvider>
+      </Provider>,
     );
 
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -2,155 +2,136 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { changePassword, getProfile, logoutUser, updateProfile } from "@/lib/api";
-import { getCurrentUser, isAuthenticated, subscribeAuth, updateCurrentUser } from "@/lib/auth";
+import { isAuthenticated, subscribeAuth } from "@/lib/auth";
 import { useI18n, type Language } from "@/lib/i18n";
-import type { User } from "@/lib/types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { profileActions } from "@/store/profile/profile-slice";
 import { LogoutIcon } from "@/components/icons";
+import {
+  AuthField,
+  AuthForm,
+  AuthNarrow,
+  AuthPageShell,
+} from "@/components/styles/auth.styles";
+import {
+  ProfileActions,
+  ProfileCard,
+  StatusBanner,
+} from "@/components/styles/profile.styles";
 
 export default function ProfilePage() {
   const { t, setLang } = useI18n();
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const dispatch = useAppDispatch();
+  const {
+    user,
+    isUpdating: updatingProfile,
+    isChangingPassword: changingPassword,
+    profileSuccess,
+    profileError,
+    passwordSuccess,
+    passwordError,
+    logoutComplete,
+  } = useAppSelector((state) => state.profile);
   const [displayName, setDisplayName] = useState("");
   const [locale, setLocale] = useState<Language>("ja");
-  const [updatingProfile, setUpdatingProfile] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/auth");
       return;
     }
-    getProfile()
-      .then((p) => {
-        setUser(p);
-        setDisplayName(p.displayName);
-        setLocale(p.locale);
-        updateCurrentUser(p);
-      })
-      .catch(() => {
-        const current = getCurrentUser();
-        if (current) {
-          setUser(current);
-          setDisplayName(current.displayName);
-          setLocale(current.locale);
-        }
-      });
+    dispatch(profileActions.loadRequested());
 
     const unsubscribe = subscribeAuth((updated) => {
       if (!updated) {
         router.replace("/auth");
       } else {
-        setUser(updated);
+        dispatch(profileActions.profileLoaded(updated));
         setDisplayName(updated.displayName);
         setLocale(updated.locale);
       }
     });
     return unsubscribe;
-  }, [router]);
+  }, [dispatch, router]);
+
+  useEffect(() => {
+    if (profileSuccess && user) setLang(user.locale);
+  }, [profileSuccess, setLang, user]);
+
+  useEffect(() => {
+    if (logoutComplete) router.replace("/");
+  }, [logoutComplete, router]);
 
   async function handleUpdateProfile(e: FormEvent) {
     e.preventDefault();
-    setProfileError(null);
-    setProfileSuccess(false);
-    setUpdatingProfile(true);
-
-    try {
-      const updated = await updateProfile({
-        displayName: displayName.trim(),
+    dispatch(
+      profileActions.updateRequested({
+        displayName: displayName.trim() || user?.displayName,
         locale,
-      });
-      setUser(updated);
-      updateCurrentUser(updated);
-      setLang(locale);
-      setProfileSuccess(true);
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : "Profile update failed");
-    } finally {
-      setUpdatingProfile(false);
-    }
+      }),
+    );
   }
 
   async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
-    setPasswordError(null);
-    setPasswordSuccess(false);
-    setChangingPassword(true);
-
     if (newPassword.length < 8) {
-      setPasswordError(t.authPasswordHint);
-      setChangingPassword(false);
+      dispatch(profileActions.passwordChangeFailed(t.authPasswordHint));
       return;
     }
-
-    try {
-      await changePassword({ currentPassword, newPassword });
-      setPasswordSuccess(true);
-      setCurrentPassword("");
-      setNewPassword("");
-    } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Password change failed");
-    } finally {
-      setChangingPassword(false);
-    }
+    dispatch(
+      profileActions.passwordChangeRequested({ currentPassword, newPassword }),
+    );
   }
 
-  async function handleLogout() {
-    await logoutUser();
-    router.replace("/");
+  function handleLogout() {
+    dispatch(profileActions.logoutRequested());
   }
 
   if (!user) {
     return (
-      <main className="page-shell" id="main-content">
-        <div className="page-narrow">
+      <AuthPageShell id="main-content">
+        <AuthNarrow>
           <div className="loading-state">
             <div className="skeleton skeleton-title" />
             <div className="skeleton skeleton-card" />
           </div>
-        </div>
-      </main>
+        </AuthNarrow>
+      </AuthPageShell>
     );
   }
 
   return (
-    <main className="page-shell" id="main-content">
-      <div className="page-narrow">
+    <AuthPageShell id="main-content">
+      <AuthNarrow>
         <div className="page-heading">
           <p className="eyebrow">{t.brandTitle}</p>
           <h1>{t.authProfile}</h1>
-          <p className="lede">
-            アカウント情報と基本設定を管理します。
-          </p>
+          <p className="lede">アカウント情報と基本設定を管理します。</p>
         </div>
 
         {/* Profile Card */}
-        <section className="profile-section-card">
+        <ProfileCard>
           <h2>基本情報</h2>
 
           {profileSuccess && (
-            <div className="status-banner success" role="status" style={{ marginBottom: 16 }}>
+            <StatusBanner $tone="success" role="status">
               <span>✓ {t.authProfileUpdated}</span>
-            </div>
+            </StatusBanner>
           )}
 
           {profileError && (
-            <div className="status-banner error" role="alert" style={{ marginBottom: 16 }}>
+            <StatusBanner $tone="error" role="alert">
               <span>{profileError}</span>
-            </div>
+            </StatusBanner>
           )}
 
-          <form onSubmit={handleUpdateProfile} className="auth-form" noValidate>
-            <div className="field">
+          <AuthForm onSubmit={handleUpdateProfile} noValidate>
+            <AuthField>
               <label htmlFor="profile-email">{t.authEmail}</label>
               <input
                 id="profile-email"
@@ -161,34 +142,36 @@ export default function ProfilePage() {
                 readOnly
                 style={{ opacity: 0.7, cursor: "not-allowed" }}
               />
-            </div>
+            </AuthField>
 
-            <div className="field">
+            <AuthField>
               <label htmlFor="profile-name">{t.authDisplayName}</label>
               <input
                 id="profile-name"
                 className="input"
                 type="text"
-                value={displayName}
+                value={displayName || user.displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 required
                 disabled={updatingProfile}
               />
-            </div>
+            </AuthField>
 
-            <div className="field">
-              <label htmlFor="profile-locale">優先言語 / Preferred Language</label>
+            <AuthField>
+              <label htmlFor="profile-locale">
+                優先言語 / Preferred Language
+              </label>
               <select
                 id="profile-locale"
                 className="input"
-                value={locale}
+                value={locale || user.locale}
                 onChange={(e) => setLocale(e.target.value as Language)}
                 disabled={updatingProfile}
               >
                 <option value="ja">日本語 (Japanese)</option>
                 <option value="ko">한국어 (Korean)</option>
               </select>
-            </div>
+            </AuthField>
 
             <button
               type="submit"
@@ -197,27 +180,27 @@ export default function ProfilePage() {
             >
               {updatingProfile ? "保存中…" : "プロフィールを保存"}
             </button>
-          </form>
-        </section>
+          </AuthForm>
+        </ProfileCard>
 
         {/* Change Password Card */}
-        <section className="profile-section-card" style={{ marginTop: 24 }}>
+        <ProfileCard>
           <h2>{t.authChangePassword}</h2>
 
           {passwordSuccess && (
-            <div className="status-banner success" role="status" style={{ marginBottom: 16 }}>
+            <StatusBanner $tone="success" role="status">
               <span>✓ {t.authPasswordChanged}</span>
-            </div>
+            </StatusBanner>
           )}
 
           {passwordError && (
-            <div className="status-banner error" role="alert" style={{ marginBottom: 16 }}>
+            <StatusBanner $tone="error" role="alert">
               <span>{passwordError}</span>
-            </div>
+            </StatusBanner>
           )}
 
-          <form onSubmit={handleChangePassword} className="auth-form" noValidate>
-            <div className="field">
+          <AuthForm onSubmit={handleChangePassword} noValidate>
+            <AuthField>
               <label htmlFor="current-password">{t.authCurrentPassword}</label>
               <input
                 id="current-password"
@@ -228,9 +211,9 @@ export default function ProfilePage() {
                 required
                 disabled={changingPassword}
               />
-            </div>
+            </AuthField>
 
-            <div className="field">
+            <AuthField>
               <label htmlFor="new-password">{t.authNewPassword}</label>
               <input
                 id="new-password"
@@ -243,7 +226,7 @@ export default function ProfilePage() {
                 disabled={changingPassword}
               />
               <p className="hint">{t.authPasswordHint}</p>
-            </div>
+            </AuthField>
 
             <button
               type="submit"
@@ -252,11 +235,11 @@ export default function ProfilePage() {
             >
               {changingPassword ? "変更中…" : t.authChangePassword}
             </button>
-          </form>
-        </section>
+          </AuthForm>
+        </ProfileCard>
 
         {/* Logout button */}
-        <div style={{ marginTop: 32, textAlign: "center" }}>
+        <ProfileActions>
           <button
             type="button"
             className="button button-ghost logout-full-btn"
@@ -265,8 +248,8 @@ export default function ProfilePage() {
             <LogoutIcon />
             {t.authLogout}
           </button>
-        </div>
-      </div>
-    </main>
+        </ProfileActions>
+      </AuthNarrow>
+    </AuthPageShell>
   );
 }

@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getStoredEditToken,
-  storeEditToken,
-  createChatThread,
   cancelChatRun,
-  sendChatMessage,
-  resumeChatThread,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type {
@@ -22,9 +18,21 @@ import type {
 } from "@/lib/types";
 import { GenerativeTripWidget } from "./generative-trip-widget";
 import { HotelSearchModal } from "./hotel-search-modal";
-import { captureMichiEvent } from "@/lib/telemetry";
 import { useAuth } from "@/lib/auth";
 import { getPlannerIntentPrompt, type PlannerIntentId } from "@/lib/planner-intents";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { plannerActions } from "@/store/planner/planner-slice";
+import {
+  ChatColumn,
+  Composer,
+  ItineraryPanel,
+  MessageList,
+  ModalBackdrop,
+  PlannerContainer,
+  PlannerLayout,
+  PlannerToolbar,
+  ScheduleDialog,
+} from "./styles/generative-chat-planner.styles";
 
 export interface ChatMessage {
   id: string;
@@ -40,7 +48,7 @@ export interface ChatMessage {
   errorCode?: string | null;
 }
 
-export interface TripProfile {
+type TripProfile = {
   /** Exact count. The backend rejects values outside 1–50. */
   partySize?: number;
   budget?: number;
@@ -59,7 +67,7 @@ export interface TripProfile {
   departureAirport?: AirportCode;
   hotel?: SearchHotelItem;
   hasLuggage: boolean;
-}
+};
 
 type AirportCode = "ICN_T1" | "ICN_T2" | "GMP_INTL" | "GMP_DOM";
 
@@ -85,37 +93,25 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingMessageAfterLoginRef = useRef<string | null>(null);
-  const requestAbortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const emittedTripIdRef = useRef<string | null>(null);
+  const dispatch = useAppDispatch();
+  const planner = useAppSelector((state) => state.planner);
+  const { threadId, threadSecret, activeTrip, isLoading, loadingStage, selectedAlternativeId, lastRetry } = planner;
 
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [threadSecret, setThreadSecret] = useState<string | null>(null);
-  const [selectedAlternativeId, setSelectedAlternativeId] = useState<string | null>(null);
-
-  const [profile, setProfile] = useState<TripProfile>({
-    budgetScope: "per_person",
-    safetyConstraints: [],
-    hotel: undefined,
-    hasLuggage: false,
-  });
+  const profile = planner.profile;
+  const setProfile = (nextProfile: TripProfile) => dispatch(plannerActions.profileReplaced(nextProfile));
 
   const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
   const [isTravelScheduleOpen, setIsTravelScheduleOpen] = useState(false);
   const [isTravelConditionsOpen, setIsTravelConditionsOpen] = useState(false);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome-message",
-      role: "assistant",
-      content: t.plannerWelcome,
-    },
-  ]);
+  const messages = useMemo(
+    () => planner.messages.length > 0 ? planner.messages : [{ id: "welcome-message", role: "assistant" as const, content: t.plannerWelcome }],
+    [planner.messages, t.plannerWelcome],
+  );
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
-  const [loadingStage, setLoadingStage] = useState<"checking" | "routing" | "waiting">("checking");
   const [inputOrigin, setInputOrigin] = useState<"direct" | "example">("direct");
-  const [lastRetry, setLastRetry] = useState<{ message: string; startFreshTrip: boolean } | null>(null);
   const [maxWalkMinutes, setMaxWalkMinutes] = useState<"" | "15" | "30" | "45">("");
   const [restIntervalMinutes, setRestIntervalMinutes] = useState<"" | "60" | "90">("");
   const [luggagePlan, setLuggagePlan] = useState<"" | "hotel-before-checkin" | "hotel-after-checkout" | "locker">("");
@@ -123,18 +119,28 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   const currency = new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "ja-JP");
 
   useEffect(() => {
+    dispatch(plannerActions.initializeMessages([{ id: "welcome-message", role: "assistant", content: t.plannerWelcome }]));
+  }, [dispatch, t.plannerWelcome]);
+
+  useEffect(() => {
+    if (!activeTrip?.id || emittedTripIdRef.current === activeTrip.id) return;
+    emittedTripIdRef.current = activeTrip.id;
+    onTripGenerated?.(activeTrip.id);
+  }, [activeTrip?.id, onTripGenerated]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, isLoading]);
 
   useEffect(() => {
     if (!isLoading) return;
-    const routingTimer = window.setTimeout(() => setLoadingStage("routing"), 5_000);
-    const waitingTimer = window.setTimeout(() => setLoadingStage("waiting"), 15_000);
+    const routingTimer = window.setTimeout(() => dispatch(plannerActions.loadingStageChanged("routing")), 5_000);
+    const waitingTimer = window.setTimeout(() => dispatch(plannerActions.loadingStageChanged("waiting")), 15_000);
     return () => {
       window.clearTimeout(routingTimer);
       window.clearTimeout(waitingTimer);
     };
-  }, [isLoading]);
+  }, [dispatch, isLoading]);
 
   // 로그인 전 작성한 요청을 버리지 않는다. AuthModal은 세션을 먼저 갱신하므로,
   // user 변경 뒤 같은 메시지를 한 번만 이어서 보낸다.
@@ -152,14 +158,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   }, [loginCancelledAt]);
 
   const intentPrompt = initialIntent ? getPlannerIntentPrompt(initialIntent, lang) : null;
-
-  async function getOrCreateThreadInfo(): Promise<{ threadId: string; threadSecret: string }> {
-    if (threadId && threadSecret) return { threadId, threadSecret };
-    const res = await createChatThread(lang, activeTrip?.id);
-    setThreadId(res.threadId);
-    setThreadSecret(res.threadSecret);
-    return res;
-  }
 
   function requestContextText(): string[] {
     const isKo = lang === "ko";
@@ -185,7 +183,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     return `${textToSend}\n\n${lang === "ko" ? "추가 조건" : "追加条件"}: ${details.join(lang === "ko" ? ", " : "、")}`;
   }
 
-  async function sendMessage(
+  function sendMessage(
     textToSend: string,
     startFreshTrip = false,
     relaxations: Array<"meal_cuisine" | "search_radius" | "route_constraints"> = [],
@@ -198,7 +196,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       optionId: string;
       expectedRevision?: number;
     },
-  ) {
+  ): void {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
       pendingMessageAfterLoginRef.current = textToSend;
@@ -206,25 +204,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       return;
     }
 
-    const userMessage: ChatMessage = {
-      id: generateMessageId("user"),
-      role: "user",
-      content: textToSend,
-    };
-
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const requestId = generateMessageId("user");
     setInput("");
     setInputOrigin("direct");
-    setLoadingStage("checking");
-    setIsLoading(true);
-    setLastRetry(null);
-    const abortController = new AbortController();
-    requestAbortControllerRef.current = abortController;
-
-    try {
-      const threadInfo = await getOrCreateThreadInfo();
-      const scheduleProfile = {
+    const scheduleProfile = {
         ...(profile.arrivalDate && profile.arrivalTime
           ? { arrivalDate: profile.arrivalDate, arrivalTime: profile.arrivalTime, arrivalAirport: profile.arrivalAirport }
           : {}),
@@ -232,11 +215,13 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           ? { departureDate: profile.departureDate, departureTime: profile.departureTime, departureAirport: profile.departureAirport }
           : {}),
       };
-      const res = await sendChatMessage(threadInfo.threadId, {
-        message: makeRequestMessage(textToSend),
-        locale: lang,
-        currentTripId: activeTrip?.id,
-        profile: {
+    dispatch(plannerActions.sendRequested({
+      message: makeRequestMessage(textToSend),
+      displayMessage: textToSend,
+      requestId,
+      locale: lang,
+      currentTripId: activeTrip?.id,
+      profile: {
           hotel: profile.hotel,
           ...(profile.partySize != null ? { partySize: profile.partySize } : {}),
           ...(profile.budget != null ? { budget: profile.budget, budgetScope: profile.budgetScope } : {}),
@@ -245,113 +230,19 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           ...(profile.safetyConstraints.length > 0 ? { safetyConstraints: profile.safetyConstraints } : {}),
           hasLuggage: profile.hasLuggage,
           ...scheduleProfile,
-        },
-        ...(startFreshTrip ? { startFreshTrip: true, profilePolicy: "ignore" as const } : {}),
-        ...(relaxations.length > 0 ? { relaxations } : {}),
-        ...(mutationTarget ? { mutationTarget } : {}),
-        ...(mealPreference ? { mealPreference } : {}),
-        ...(mealCuisine ? { mealCuisine } : {}),
-        ...(chatIntent ? { chatIntent } : {}),
-        requestId: userMessage.id,
-        ...(structuredChoice ?? {}),
-        threadSecret: threadInfo.threadSecret,
-        editToken: activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined,
-        signal: abortController.signal,
-      });
-
-      if (res.threadSecret && !threadSecret) {
-        setThreadSecret(res.threadSecret);
-      }
-
-      captureMichiEvent("chat_message_sent", {
-        context: {
-          threadId: threadInfo.threadId,
-          messageLength: textToSend.length,
-          locale: lang,
-          hasActiveTrip: !!activeTrip?.id,
-        },
-      });
-
-      const assistantMessage: ChatMessage = {
-        id: generateMessageId("assistant"),
-        role: "assistant",
-        content: res.responseMessage,
-        actionChips: res.actionChips,
-        status: res.status,
-        pendingAction: res.pendingAction,
-        pendingQuestion: res.pendingQuestion,
-        alternatives: res.alternatives,
-        verifiedPlaceFacts: res.verifiedPlaceFacts,
-        resultTrip: res.resultTrip,
-        errorCode: res.errorCode,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      if (res.status === "failed") {
-        setLastRetry({ message: textToSend, startFreshTrip });
-      }
-
-      if (res.alternatives && res.alternatives.length > 0) {
-        setSelectedAlternativeId(res.alternatives[0].placeId);
-      }
-
-      if (res.resultTrip?.id) {
-        if (res.editToken) {
-          storeEditToken(res.resultTrip.id, res.editToken);
-          res.resultTrip.editToken = res.editToken;
-          res.resultTrip.isEditable = true;
-        }
-        captureMichiEvent("trip_generated", {
-          tripId: res.resultTrip.id,
-          componentPath: ["HomePage", "GenerativeChatPlanner", "ChatResponse"],
-          context: {
-            stopCount: res.resultTrip.stops?.length ?? 0,
-            providerMode: res.resultTrip.providerModes?.place ?? "unknown",
-            estimatedTotalCost: res.resultTrip.estimatedTotalCost,
-          },
-        });
-        setActiveTrip(res.resultTrip);
-        if (onTripGenerated) {
-          onTripGenerated(res.resultTrip.id);
-        }
-      }
-    } catch {
-      if (abortController.signal.aborted) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: generateMessageId("cancelled"),
-            role: "assistant",
-            content: lang === "ko" ? "일정 생성을 취소했어요. 요청을 고쳐서 다시 보낼 수 있어요." : "旅程作成をキャンセルしました。内容を直してもう一度送れます。",
-          },
-        ]);
-        setLastRetry({ message: textToSend, startFreshTrip });
-        return;
-      }
-      setLastRetry({ message: textToSend, startFreshTrip });
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: generateMessageId("err"),
-          role: "assistant",
-          content:
-            lang === "ko"
-              ? "응답을 받아오는 중 오류가 발생했습니다. 다시 시도해 주세요."
-              : "応答の取得中にエラーが発生しました。もう一度お試しください。",
-        },
-      ]);
-    } finally {
-      if (requestAbortControllerRef.current === abortController) {
-        requestAbortControllerRef.current = null;
-      }
-      setIsLoading(false);
-    }
+      },
+      ...(startFreshTrip ? { startFreshTrip: true } : {}),
+      ...(relaxations.length > 0 ? { relaxations } : {}),
+      ...(mutationTarget ? { mutationTarget } : {}),
+      ...(mealPreference ? { mealPreference } : {}),
+      ...(mealCuisine ? { mealCuisine } : {}),
+      ...(chatIntent ? { chatIntent } : {}),
+      ...(structuredChoice ? { structuredChoice } : {}),
+    }));
   }
 
   async function cancelGeneration() {
-    const abortController = requestAbortControllerRef.current;
-    if (!abortController) return;
+    if (!isLoading) return;
     const editToken = activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined;
     try {
       if (threadId) {
@@ -359,9 +250,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       }
     } catch {
       // The browser abort below still returns control to the user if the cancel request cannot reach the server.
-    } finally {
-      abortController.abort();
-    }
+    } finally { dispatch(plannerActions.cancelRequested()); }
   }
 
   function prepareRetry() {
@@ -373,62 +262,11 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
 
   async function handleResumeDecision(decision: "approve" | "reject", chosenPlaceId?: string) {
     if (!threadId || isLoading) return;
-    setIsLoading(true);
-
-    const editToken = activeTrip?.id ? (getStoredEditToken(activeTrip.id) ?? undefined) : undefined;
-
-    try {
-      const res = await resumeChatThread(threadId, {
-        decision,
-        chosenPlaceId: decision === "approve" ? (chosenPlaceId || selectedAlternativeId || undefined) : undefined,
-        threadSecret: threadSecret || undefined,
-        editToken,
-      });
-
-      const assistantMessage: ChatMessage = {
-        id: generateMessageId("assistant"),
-        role: "assistant",
-        content: res.responseMessage,
-        actionChips: res.actionChips,
-        status: res.status,
-        pendingAction: res.pendingAction,
-        resultTrip: res.resultTrip,
-        errorCode: res.errorCode,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      if (res.resultTrip?.id) {
-        if (decision === "approve") {
-          captureMichiEvent("trip_modified", {
-            tripId: res.resultTrip.id,
-            context: {
-              threadId,
-              action: "replace",
-              newPlaceId: chosenPlaceId || selectedAlternativeId,
-            },
-          });
-        }
-        setActiveTrip(res.resultTrip);
-        if (onTripGenerated) {
-          onTripGenerated(res.resultTrip.id);
-        }
-      }
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: generateMessageId("err"),
-          role: "assistant",
-          content:
-            lang === "ko"
-              ? "일정 변경 처리 중 오류가 발생했습니다."
-              : "プラン変更の処理中にエラーが発生しました。",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    dispatch(plannerActions.resumeRequested({
+      decision,
+      chosenPlaceId: decision === "approve" ? chosenPlaceId || selectedAlternativeId || undefined : undefined,
+      locale: lang,
+    }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -437,38 +275,17 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
   }
 
   function handleSelectTrip(trip: Trip) {
-    setActiveTrip(trip);
+    dispatch(plannerActions.activeTripSelected(trip));
   }
 
   return (
-    <div className="generative-chat-container" style={{ width: "100%" }}>
+    <PlannerContainer>
       {/* Layout Container: Single centered column initially, 2-column split when trip is generated */}
-      <div className={activeTrip ? "chat-split-layout" : "chat-single-layout"}>
+      <PlannerLayout $hasTrip={Boolean(activeTrip)}>
         {/* Chat Column: Chat Stream & Input */}
-        <div
-          className="chat-column"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            height: "760px",
-            backgroundColor: "#ffffff",
-            borderRadius: "20px",
-            border: "1.5px solid #e2e8f0",
-            overflow: "hidden",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
-          }}
-        >
+        <ChatColumn>
           {/* Quick Profile Bar */}
-          <div
-            style={{
-              padding: "10px 14px",
-              backgroundColor: "#f8fafc",
-              borderBottom: "1px solid #e2e8f0",
-              display: "grid",
-              gap: "10px",
-              fontSize: "0.82rem",
-            }}
-          >
+          <PlannerToolbar>
             <button
               type="button"
               aria-expanded={isTravelConditionsOpen}
@@ -760,21 +577,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 </div>
               </>
             )}
-          </div>
+          </PlannerToolbar>
 
           {/* Chat Messages List */}
-          <div
-            className="chat-messages-scroll"
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "18px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "14px",
-              backgroundColor: "#f8fafc",
-            }}
-          >
+          <MessageList className="chat-messages-scroll">
             {messages.map((message) => {
               const isUser = message.role === "user";
               // The welcome message belongs to the current UI locale even after the
@@ -915,7 +721,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                             return (
                               <div
                                 key={alt.placeId}
-                                onClick={() => setSelectedAlternativeId(alt.placeId)}
+                                onClick={() => dispatch(plannerActions.alternativeSelected(alt.placeId))}
                                 style={{
                                   padding: "10px 12px",
                                   borderRadius: "10px",
@@ -1289,19 +1095,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
             )}
 
             <div ref={messagesEndRef} />
-          </div>
+          </MessageList>
 
           {/* Chat Input Form */}
-          <form
-            onSubmit={handleSubmit}
-            style={{
-              padding: "14px 16px",
-              backgroundColor: "#ffffff",
-              borderTop: "1px solid #e2e8f0",
-              display: "grid",
-              gap: "8px",
-            }}
-          >
+          <Composer onSubmit={handleSubmit}>
             <p id="planner-first-request-hint" style={{ margin: 0, color: "#475569", fontSize: "0.78rem", lineHeight: 1.45 }}>
               <strong>{t.plannerFirstRequestLabel}</strong><br />
               {t.plannerFirstRequestExample}
@@ -1340,23 +1137,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 {lang === "ko" ? "전송" : "送信"}
               </button>
             </div>
-          </form>
-        </div>
+          </Composer>
+        </ChatColumn>
 
         {/* Right Column: Interactive Itinerary & Map Panel (Appears only when trip exists) */}
         {activeTrip && (
-          <div
-            className="itinerary-column"
-            style={{
-              height: "760px",
-              backgroundColor: "#ffffff",
-              borderRadius: "20px",
-              border: "1.5px solid #e2e8f0",
-              overflow: "hidden",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
-              animation: "chatFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
+          <ItineraryPanel className="itinerary-column">
             <GenerativeTripWidget
               trip={activeTrip}
               style={{
@@ -1366,9 +1152,9 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 margin: 0,
               }}
             />
-          </div>
+          </ItineraryPanel>
         )}
-      </div>
+      </PlannerLayout>
 
       {/* Real-time Hotel Search Modal */}
       <HotelSearchModal
@@ -1382,30 +1168,12 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       />
 
       {isTravelScheduleOpen && (
-        <div
+        <ModalBackdrop
           role="dialog"
           aria-modal="true"
           aria-label={lang === "ko" ? "도착 및 출발 일정" : "到着・出発日程"}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            background: "rgba(15, 23, 42, 0.42)",
-          }}
         >
-          <div
-            style={{
-              width: "min(100%, 430px)",
-              borderRadius: "16px",
-              background: "#fff",
-              padding: "24px",
-              boxShadow: "0 24px 56px rgba(15, 23, 42, 0.24)",
-            }}
-          >
+          <ScheduleDialog>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.15rem", color: "#0f172a" }}>
@@ -1517,9 +1285,9 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 {lang === "ko" ? "적용" : "適用"}
               </button>
             </div>
-          </div>
-        </div>
+          </ScheduleDialog>
+        </ModalBackdrop>
       )}
-    </div>
+    </PlannerContainer>
   );
 }

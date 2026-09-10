@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: frontendDirectory,
   poweredByHeader: false,
+  compiler: {
+    styledComponents: true,
+  },
   transpilePackages: ["@logfriends/sdk"],
   turbopack: { root: frontendDirectory },
 };

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { searchHotels } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { SearchHotelItem } from "@/lib/types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { hotelSearchActions } from "@/store/hotel-search/hotel-search-slice";
 import { NaverMap, type MapStop } from "./naver-map";
 
 interface HotelSearchModalProps {
@@ -80,28 +81,29 @@ export function HotelSearchModal({
   initialQuery = "",
 }: HotelSearchModalProps) {
   const { lang, t } = useI18n();
+  const dispatch = useAppDispatch();
+  const {
+    results,
+    isLoading: loading,
+    hasSearched,
+  } = useAppSelector((state) => state.hotelSearch);
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<SearchHotelItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
   const [activeHotelId, setActiveHotelId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const searchRequestRef = useRef(0);
 
   useEffect(() => {
     if (!isOpen) return;
     const timer = setTimeout(() => {
       setQuery(initialQuery);
-      setResults([]);
-      setHasSearched(false);
+      dispatch(hotelSearchActions.reset());
       setActiveHotelId(null);
       inputRef.current?.focus();
       if (initialQuery.trim().length >= 2) {
-        executeSearch(initialQuery.trim());
+        dispatch(hotelSearchActions.searchRequested(initialQuery.trim()));
       }
     }, 10);
     return () => clearTimeout(timer);
-  }, [isOpen, initialQuery]);
+  }, [dispatch, isOpen, initialQuery]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -113,27 +115,10 @@ export function HotelSearchModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  async function executeSearch(searchTarget: string) {
+  function executeSearch(searchTarget: string) {
     if (!searchTarget.trim()) return;
-    const requestId = ++searchRequestRef.current;
-    setLoading(true);
-    setHasSearched(true);
-    try {
-      const items = await searchHotels(searchTarget.trim());
-      if (requestId !== searchRequestRef.current) return;
-      setResults(items);
-      if (items.length > 0) {
-        setActiveHotelId("hotel-0");
-      } else {
-        setActiveHotelId(null);
-      }
-    } catch {
-      if (requestId !== searchRequestRef.current) return;
-      setResults([]);
-      setActiveHotelId(null);
-    } finally {
-      if (requestId === searchRequestRef.current) setLoading(false);
-    }
+    setActiveHotelId(null);
+    dispatch(hotelSearchActions.searchRequested(searchTarget.trim()));
   }
 
   function handleSubmit(e: FormEvent) {
@@ -231,7 +216,9 @@ export function HotelSearchModal({
             >
               <span>🏨</span> {t.hotelSearchModalTitle}
             </h2>
-            <p style={{ fontSize: "12px", color: "#64748b", margin: "4px 0 0" }}>
+            <p
+              style={{ fontSize: "12px", color: "#64748b", margin: "4px 0 0" }}
+            >
               {lang === "ko"
                 ? "숙소를 검색하거나 지도에서 위치를 직접 확인하고 선택하세요."
                 : "宿泊先を検索、または地図で位置を確認して選択してください。"}
@@ -280,7 +267,10 @@ export function HotelSearchModal({
           >
             {/* Search Input Box */}
             <div style={{ padding: "14px 16px 10px" }}>
-              <form onSubmit={handleSubmit} style={{ display: "flex", gap: "6px" }}>
+              <form
+                onSubmit={handleSubmit}
+                style={{ display: "flex", gap: "6px" }}
+              >
                 <input
                   ref={inputRef}
                   className="input"
@@ -293,10 +283,19 @@ export function HotelSearchModal({
                   type="submit"
                   className="button button-primary"
                   disabled={loading || !query.trim()}
-                  style={{ height: "42px", padding: "0 16px", whiteSpace: "nowrap", fontSize: "13px" }}
+                  style={{
+                    height: "42px",
+                    padding: "0 16px",
+                    whiteSpace: "nowrap",
+                    fontSize: "13px",
+                  }}
                 >
                   {loading ? (
-                    <span className="spinner" style={{ width: 14, height: 14 }} aria-hidden="true" />
+                    <span
+                      className="spinner"
+                      style={{ width: 14, height: 14 }}
+                      aria-hidden="true"
+                    />
                   ) : (
                     t.hotelSearchBtn
                   )}
@@ -355,7 +354,11 @@ export function HotelSearchModal({
                     fontSize: "13px",
                   }}
                 >
-                  <span className="spinner" style={{ width: 22, height: 22 }} aria-hidden="true" />
+                  <span
+                    className="spinner"
+                    style={{ width: 22, height: 22 }}
+                    aria-hidden="true"
+                  />
                   <p>{t.hotelSearchSearching}</p>
                 </div>
               )}
@@ -369,9 +372,19 @@ export function HotelSearchModal({
                     fontSize: "13px",
                   }}
                 >
-                  <div style={{ fontSize: "26px", marginBottom: "6px" }}>🔍</div>
-                  <p style={{ fontWeight: 700, color: "#334155" }}>{t.hotelSearchNoResults}</p>
-                  <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+                  <div style={{ fontSize: "26px", marginBottom: "6px" }}>
+                    🔍
+                  </div>
+                  <p style={{ fontWeight: 700, color: "#334155" }}>
+                    {t.hotelSearchNoResults}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "#94a3b8",
+                      marginTop: "4px",
+                    }}
+                  >
                     {lang === "ko"
                       ? "다른 호텔명(예: 롯데호텔, 신라호텔, 나인트리)이나 지역명으로 검색해 보세요."
                       : "別のホテル名やエリア名で検索してください。"}
@@ -381,88 +394,119 @@ export function HotelSearchModal({
 
               {!loading && !hasSearched && (
                 <div style={{ marginBottom: "8px" }}>
-                  <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#64748b", marginBottom: "6px" }}>
-                    ⭐ {lang === "ko" ? "서울 대표 인기 호텔 (선택 또는 검색)" : "ソウルの人気ホテル（選択または検索）"}
+                  <div
+                    style={{
+                      fontSize: "11.5px",
+                      fontWeight: 700,
+                      color: "#64748b",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    ⭐{" "}
+                    {lang === "ko"
+                      ? "서울 대표 인기 호텔 (선택 또는 검색)"
+                      : "ソウルの人気ホテル（選択または検索）"}
                   </div>
                 </div>
               )}
 
-              {!loading && displayedHotels.length > 0 && (!hasSearched || results.length > 0) && (
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {displayedHotels.map((hotel, idx) => {
-                    const stopId = `hotel-${idx}`;
-                    const isSelected = activeHotelId === stopId;
+              {!loading &&
+                displayedHotels.length > 0 &&
+                (!hasSearched || results.length > 0) && (
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      padding: 0,
+                      margin: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}
+                  >
+                    {displayedHotels.map((hotel, idx) => {
+                      const stopId = `hotel-${idx}`;
+                      const isSelected = activeHotelId === stopId;
 
-                    return (
-                      <li
-                        key={`${hotel.name}-${idx}`}
-                        onClick={() => {
-                          onSelect(hotel);
-                          onClose();
-                        }}
-                        onMouseEnter={() => setActiveHotelId(stopId)}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: "10px",
-                          border: isSelected ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                          backgroundColor: isSelected ? "#eff6ff" : "#ffffff",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "10px",
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 700,
-                              color: isSelected ? "#1d4ed8" : "#0f172a",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <span>🏨</span>
-                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {hotel.name}
-                            </span>
-                          </div>
-                          {hotel.roadAddress && (
-                            <div
-                              style={{
-                                fontSize: "11px",
-                                color: "#64748b",
-                                marginTop: "3px",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              📍 {hotel.roadAddress}
-                            </div>
-                          )}
-                        </div>
-                        <span
+                      return (
+                        <li
+                          key={`${hotel.name}-${idx}`}
+                          onClick={() => {
+                            onSelect(hotel);
+                            onClose();
+                          }}
+                          onMouseEnter={() => setActiveHotelId(stopId)}
                           style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            color: isSelected ? "#ffffff" : "#2563eb",
-                            backgroundColor: isSelected ? "#2563eb" : "#dbeafe",
-                            padding: "3px 8px",
-                            borderRadius: "6px",
-                            whiteSpace: "nowrap",
+                            padding: "10px 12px",
+                            borderRadius: "10px",
+                            border: isSelected
+                              ? "1.5px solid #2563eb"
+                              : "1px solid #e2e8f0",
+                            backgroundColor: isSelected ? "#eff6ff" : "#ffffff",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "10px",
                           }}
                         >
-                          {lang === "ko" ? "선택" : "選択"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                fontWeight: 700,
+                                color: isSelected ? "#1d4ed8" : "#0f172a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                            >
+                              <span>🏨</span>
+                              <span
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {hotel.name}
+                              </span>
+                            </div>
+                            {hotel.roadAddress && (
+                              <div
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#64748b",
+                                  marginTop: "3px",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                📍 {hotel.roadAddress}
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              color: isSelected ? "#ffffff" : "#2563eb",
+                              backgroundColor: isSelected
+                                ? "#2563eb"
+                                : "#dbeafe",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {lang === "ko" ? "선택" : "選択"}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
             </div>
           </div>
 

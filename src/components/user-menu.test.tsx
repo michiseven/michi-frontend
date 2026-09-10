@@ -3,7 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as auth from "@/lib/auth";
 import { I18nProvider, resetLanguage } from "@/lib/i18n";
+import { StoreProvider } from "@/store/provider";
 import { UserMenu } from "./user-menu";
+
+function renderMenu() {
+  return render(
+    <StoreProvider>
+      <I18nProvider>
+        <UserMenu />
+      </I18nProvider>
+    </StoreProvider>,
+  );
+}
 
 const pathnameMock = vi.hoisted(() => ({ value: "/" }));
 
@@ -21,26 +32,22 @@ describe("UserMenu", () => {
   it("should show login button when user is not logged in", () => {
     vi.spyOn(auth, "useAuth").mockReturnValue(null);
 
-    render(
-      <I18nProvider>
-        <UserMenu />
-      </I18nProvider>,
-    );
+    renderMenu();
 
-    expect(screen.getByRole("button", { name: "ログイン" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "ログイン" }),
+    ).toBeInTheDocument();
   });
 
   it("does not show a duplicate login modal trigger on the auth page", () => {
     pathnameMock.value = "/auth";
     vi.spyOn(auth, "useAuth").mockReturnValue(null);
 
-    render(
-      <I18nProvider>
-        <UserMenu />
-      </I18nProvider>,
-    );
+    renderMenu();
 
-    expect(screen.queryByRole("button", { name: "ログイン" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "ログイン" }),
+    ).not.toBeInTheDocument();
   });
 
   it("should show user avatar badge and toggle dropdown menu when logged in", async () => {
@@ -53,13 +60,11 @@ describe("UserMenu", () => {
       createdAt: "2026-08-27T00:00:00.000Z",
     });
 
-    render(
-      <I18nProvider>
-        <UserMenu />
-      </I18nProvider>,
-    );
+    renderMenu();
 
-    const avatarBtn = screen.getByRole("button", { name: /田中太郎のユーザーメニュー/ });
+    const avatarBtn = screen.getByRole("button", {
+      name: /田中太郎のユーザーメニュー/,
+    });
     expect(avatarBtn).toBeInTheDocument();
     expect(screen.getByText("田中太郎")).toBeInTheDocument();
 
@@ -69,7 +74,9 @@ describe("UserMenu", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.getByText("保存した旅程")).toBeInTheDocument();
     expect(screen.getByText("マイページ")).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /ログアウト/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: /ログアウト/ }),
+    ).toBeInTheDocument();
   });
 
   it("localizes the user-menu accessible name when Korean is selected", () => {
@@ -82,12 +89,10 @@ describe("UserMenu", () => {
       createdAt: "2026-08-27T00:00:00.000Z",
     });
 
-    render(
-      <I18nProvider>
-        <UserMenu />
-      </I18nProvider>,
-    );
+    renderMenu();
 
-    expect(screen.getByRole("button", { name: "최성현 사용자 메뉴" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "최성현 사용자 메뉴" }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { I18nProvider } from "@/lib/i18n";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { AppProviders } from "@/components/app-providers";
+import { GlobalStyle } from "@/components/styles/app-shell";
+import { StyledComponentsRegistry } from "@/lib/styled-components-registry";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,11 +14,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ja">
       <body>
-        <I18nProvider>
-          <SiteHeader />
-          {children}
-          <SiteFooter />
-        </I18nProvider>
+        <StyledComponentsRegistry>
+          <GlobalStyle />
+          <AppProviders>
+            <SiteHeader />
+            {children}
+            <SiteFooter />
+          </AppProviders>
+        </StyledComponentsRegistry>
       </body>
     </html>
   );

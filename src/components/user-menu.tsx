@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { logoutUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { useAppDispatch } from "@/store/hooks";
+import { profileActions } from "@/store/profile/profile-slice";
 import { BookmarkIcon, LogoutIcon, UserIcon } from "./icons";
 import { AuthModal } from "./auth-modal";
 
@@ -13,6 +14,7 @@ export function UserMenu() {
   const { lang, t } = useI18n();
   const pathname = usePathname();
   const user = useAuth();
+  const dispatch = useAppDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -32,9 +34,9 @@ export function UserMenu() {
     };
   }, [menuOpen]);
 
-  async function handleLogout() {
+  function handleLogout() {
     setMenuOpen(false);
-    await logoutUser();
+    dispatch(profileActions.logoutRequested());
   }
 
   function openAuth(mode: "login" | "register") {
@@ -76,7 +78,11 @@ export function UserMenu() {
         onClick={() => setMenuOpen(!menuOpen)}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        aria-label={lang === "ko" ? `${user.displayName} 사용자 메뉴` : `${user.displayName}のユーザーメニュー`}
+        aria-label={
+          lang === "ko"
+            ? `${user.displayName} 사용자 메뉴`
+            : `${user.displayName}のユーザーメニュー`
+        }
       >
         <span className="user-avatar-badge" aria-hidden="true">
           {initials}

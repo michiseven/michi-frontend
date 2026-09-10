@@ -14,10 +14,14 @@
     "@ai-sdk/openai": "^4.0.50",
     "@ai-sdk/react": "^4.0.86",
     "@logfriends/sdk": "^1.0.11",
+    "@reduxjs/toolkit": "^2.12.0",
     "ai": "^7.0.83",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-redux": "^9.3.0",
+    "redux-saga": "^1.5.1",
+    "styled-components": "^6.5.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

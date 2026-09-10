@@ -2,6 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, resetLanguage } from "@/lib/i18n";
+import { StoreProvider } from "@/store/provider";
+import { store } from "@/store/store";
+import { authActions } from "@/store/auth/auth-slice";
 import AuthPage from "./page";
 
 const routerMock = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -32,15 +35,18 @@ const authResponse = {
 
 function renderPage() {
   return render(
-    <I18nProvider>
-      <AuthPage />
-    </I18nProvider>,
+    <StoreProvider>
+      <I18nProvider>
+        <AuthPage />
+      </I18nProvider>
+    </StoreProvider>,
   );
 }
 
 describe("AuthPage", () => {
   beforeEach(() => {
     resetLanguage("ja");
+    store.dispatch(authActions.reset());
     routerMock.replace.mockReset();
     authMock.isAuthenticated.mockReturnValue(false);
     authMock.setAuthSession.mockReset();
@@ -51,18 +57,45 @@ describe("AuthPage", () => {
   it("renders a start screen before exposing an auth form", () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { level: 1, name: "好みからつくる、ソウルの一日" })).toBeInTheDocument();
-    expect(screen.getByText("空港到着後、荷物を預けて始める一日")).toBeInTheDocument();
-    expect(screen.getByText("ご両親と歩く、無理のないソウル")).toBeInTheDocument();
-    expect(screen.getByText("3時間で楽しむ、雨の日の室内コース")).toBeInTheDocument();
-    expect(screen.getByText("ログイン後は、こんな一文からすぐに相談を始められます。")).toBeInTheDocument();
-    expect(screen.getByText("対応言語：日本語・韓国語。メールでログインできます。")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "このテーマで始める" })).toHaveLength(3);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "好みからつくる、ソウルの一日",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("空港到着後、荷物を預けて始める一日"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("ご両親と歩く、無理のないソウル"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("3時間で楽しむ、雨の日の室内コース"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "ログイン後は、こんな一文からすぐに相談を始められます。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("対応言語：日本語・韓国語。メールでログインできます。"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "このテーマで始める" }),
+    ).toHaveLength(3);
     expect(screen.getByText("過ごしたい一日を伝える")).toBeInTheDocument();
     expect(screen.getByText("候補と順番を受け取る")).toBeInTheDocument();
     expect(screen.getByText("保存して、あとから編集する")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "希望を会話で伝えるMichiのAI旅程プランナー画面" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "おすすめの場所と移動順を確認するMichiの旅程画面" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "希望を会話で伝えるMichiのAI旅程プランナー画面",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "おすすめの場所と移動順を確認するMichiの旅程画面",
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("メールアドレス")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("パスワード")).not.toBeInTheDocument();
   });
@@ -71,23 +104,53 @@ describe("AuthPage", () => {
     resetLanguage("ko");
     renderPage();
 
-    expect(screen.getByRole("heading", { level: 1, name: "내 취향으로 만드는 서울 하루" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "무료로 일정 만들기" })).toBeInTheDocument();
-    expect(screen.getByText("공항 도착 후 짐 맡기고 시작하는 하루")).toBeInTheDocument();
-    expect(screen.getByText("부모님과 걷는, 무리 없는 서울 하루")).toBeInTheDocument();
-    expect(screen.getByText("3시간 안에 즐기는 비 오는 날 실내 코스")).toBeInTheDocument();
-    expect(screen.getByText("로그인 후에는 이런 한 문장으로 바로 상담을 시작할 수 있어요.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "내 취향으로 만드는 서울 하루",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "무료로 일정 만들기" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("공항 도착 후 짐 맡기고 시작하는 하루"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("부모님과 걷는, 무리 없는 서울 하루"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("3시간 안에 즐기는 비 오는 날 실내 코스"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "로그인 후에는 이런 한 문장으로 바로 상담을 시작할 수 있어요.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("opens registration from the primary CTA and explains email use only there", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.queryByText(/メールアドレスは、作成した旅程/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "無料で旅程をつくる" }));
-    expect(screen.getByRole("heading", { level: 1, name: "旅程を保存するアカウントをつくりましょう" })).toBeInTheDocument();
-    expect(screen.getByText(/メールアドレスは、作成した旅程/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "最初の画面に戻る" })).toBeInTheDocument();
+    expect(
+      screen.queryByText(/メールアドレスは、作成した旅程/),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "無料で旅程をつくる" }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "旅程を保存するアカウントをつくりましょう",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/メールアドレスは、作成した旅程/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "最初の画面に戻る" }),
+    ).toBeInTheDocument();
   });
 
   it("opens login from the existing-user action and keeps accessible tab switching", async () => {
@@ -95,15 +158,36 @@ describe("AuthPage", () => {
     renderPage();
 
     await user.click(screen.getByRole("button", { name: "ログイン" }));
-    expect(screen.getByRole("heading", { level: 1, name: "もう一度、ソウル旅行を続けましょう" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "もう一度、ソウル旅行を続けましょう",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("メールアドレス")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "ログイン" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "ログイン" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
     await user.click(screen.getByRole("tab", { name: "会員登録" }));
-    expect(screen.getByRole("heading", { level: 1, name: "旅程を保存するアカウントをつくりましょう" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "会員登録" })).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "旅程を保存するアカウントをつくりましょう",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "会員登録" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await user.click(screen.getByRole("button", { name: "最初の画面に戻る" }));
-    expect(screen.getByRole("heading", { level: 1, name: "好みからつくる、ソウルの一日" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "好みからつくる、ソウルの一日",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("redirects an already authenticated user to the planner", async () => {
@@ -111,8 +195,15 @@ describe("AuthPage", () => {
     renderPage();
 
     await waitFor(() => expect(routerMock.replace).toHaveBeenCalledWith("/"));
-    expect(screen.getByRole("status")).toHaveTextContent("Michiを準備しています…");
-    expect(screen.queryByRole("heading", { level: 1, name: "好みからつくる、ソウルの一日" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Michiを準備しています…",
+    );
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "好みからつくる、ソウルの一日",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("replaces the auth page with the planner after login", async () => {
@@ -121,11 +212,21 @@ describe("AuthPage", () => {
     renderPage();
 
     await user.click(screen.getByRole("button", { name: "ログイン" }));
-    await user.type(screen.getByLabelText("メールアドレス"), "michi@example.com");
+    await user.type(
+      screen.getByLabelText("メールアドレス"),
+      "michi@example.com",
+    );
     await user.type(screen.getByLabelText("パスワード"), "password123");
-    await user.click(screen.getByRole("button", { name: "ログインして旅程を見る" }));
+    await user.click(
+      screen.getByRole("button", { name: "ログインして旅程を見る" }),
+    );
 
-    await waitFor(() => expect(apiMock.loginUser).toHaveBeenCalledWith({ email: "michi@example.com", password: "password123" }));
+    await waitFor(() =>
+      expect(apiMock.loginUser).toHaveBeenCalledWith({
+        email: "michi@example.com",
+        password: "password123",
+      }),
+    );
     expect(authMock.setAuthSession).toHaveBeenCalledWith(authResponse);
     expect(routerMock.replace).toHaveBeenCalledWith("/");
   });
@@ -135,18 +236,27 @@ describe("AuthPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole("button", { name: "無料で旅程をつくる" }));
+    await user.click(
+      screen.getByRole("button", { name: "無料で旅程をつくる" }),
+    );
     await user.type(screen.getByLabelText("ニックネーム"), "田中");
-    await user.type(screen.getByLabelText("メールアドレス"), "michi@example.com");
+    await user.type(
+      screen.getByLabelText("メールアドレス"),
+      "michi@example.com",
+    );
     await user.type(screen.getByLabelText("パスワード"), "password123");
-    await user.click(screen.getByRole("button", { name: "会員登録して旅程をつくる" }));
+    await user.click(
+      screen.getByRole("button", { name: "会員登録して旅程をつくる" }),
+    );
 
-    await waitFor(() => expect(apiMock.registerUser).toHaveBeenCalledWith({
-      displayName: "田中",
-      email: "michi@example.com",
-      password: "password123",
-      locale: "ja",
-    }));
+    await waitFor(() =>
+      expect(apiMock.registerUser).toHaveBeenCalledWith({
+        displayName: "田中",
+        email: "michi@example.com",
+        password: "password123",
+        locale: "ja",
+      }),
+    );
     expect(authMock.setAuthSession).toHaveBeenCalledWith(authResponse);
     expect(routerMock.replace).toHaveBeenCalledWith("/");
   });
@@ -156,12 +266,23 @@ describe("AuthPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getAllByRole("button", { name: "このテーマで始める" })[0]!);
+    await user.click(
+      screen.getAllByRole("button", { name: "このテーマで始める" })[0]!,
+    );
     await user.type(screen.getByLabelText("ニックネーム"), "田中");
-    await user.type(screen.getByLabelText("メールアドレス"), "michi@example.com");
+    await user.type(
+      screen.getByLabelText("メールアドレス"),
+      "michi@example.com",
+    );
     await user.type(screen.getByLabelText("パスワード"), "password123");
-    await user.click(screen.getByRole("button", { name: "会員登録して旅程をつくる" }));
+    await user.click(
+      screen.getByRole("button", { name: "会員登録して旅程をつくる" }),
+    );
 
-    await waitFor(() => expect(routerMock.replace).toHaveBeenCalledWith("/?intent=arrival_luggage"));
+    await waitFor(() =>
+      expect(routerMock.replace).toHaveBeenCalledWith(
+        "/?intent=arrival_luggage",
+      ),
+    );
   });
 });

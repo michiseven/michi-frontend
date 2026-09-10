@@ -7,6 +7,7 @@ import { GenerativeChatPlanner } from "@/components/generative-chat-planner";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { isPlannerIntentId, type PlannerIntentId } from "@/lib/planner-intents";
+import { PlannerPage, PlannerPageContent } from "@/components/styles/app-shell";
 
 const subscribeToLocation = () => () => {};
 function getIntentFromLocation(): PlannerIntentId | null {
@@ -43,8 +44,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className="page-shell" id="main-content">
-      <div className="page-wide">
+    <PlannerPage id="main-content">
+      <PlannerPageContent>
         <div className="page-heading">
           <p className="eyebrow">{t.homeEyebrow}</p>
           <h1>{t.homeTitle}</h1>
@@ -52,7 +53,7 @@ export default function HomePage() {
         </div>
         <EnvironmentBanner />
         <GenerativeChatPlanner initialIntent={initialIntent} />
-      </div>
-    </main>
+      </PlannerPageContent>
+    </PlannerPage>
   );
 }
