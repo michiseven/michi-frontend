@@ -17,11 +17,7 @@ import { PlaceCard } from "./place-card";
 import { ProviderStatus } from "./provider-status";
 import { SafetyConstraintSummary } from "./safety-constraint-summary";
 import { TripConstraintSummary } from "./trip-constraint-summary";
-import {
-  BookmarkIcon,
-  CheckIcon,
-  RefreshIcon,
-} from "./icons";
+import { BookmarkIcon, CheckIcon, RefreshIcon } from "./icons";
 
 interface TripViewProps {
   initialTrip: Trip;
@@ -55,7 +51,10 @@ export function TripView({
 }: TripViewProps) {
   const { t, lang } = useI18n();
   const [modifiedTrip, setModifiedTrip] = useState<Trip | null>(null);
-  const trip = modifiedTrip && modifiedTrip.id === initialTrip.id ? modifiedTrip : initialTrip;
+  const trip =
+    modifiedTrip && modifiedTrip.id === initialTrip.id
+      ? modifiedTrip
+      : initialTrip;
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string>();
   const [actionError, setActionError] = useState<string>();
@@ -72,7 +71,9 @@ export function TripView({
   // Airport transfers are trip boundaries. Old saved trips may still contain
   // airport stops, but they must never become ordinary venues in this view.
   const airportTransfers = trip.airportTransfers ?? [];
-  const legacyAirportStops = trip.stops.filter((stop) => stop.stopType === "airport");
+  const legacyAirportStops = trip.stops.filter(
+    (stop) => stop.stopType === "airport",
+  );
   const regularStops = trip.stops.filter((stop) => stop.stopType !== "airport");
 
   useEffect(() => {
@@ -98,6 +99,10 @@ export function TripView({
         stopsCount: regularStops.length,
         estimatedTotalCost: trip.estimatedTotalCost,
         tripSnapshot: trip,
+      });
+      captureMichiEvent("trip_saved", {
+        tripId: trip.id,
+        context: { stopCount: regularStops.length },
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -126,15 +131,17 @@ export function TripView({
   const selectedDayDate =
     selectedDay === "all"
       ? null
-      : regularStops.find((stop) => (stop.dayNumber ?? 1) === selectedDay)
-          ?.dayDate ?? null;
+      : (regularStops.find((stop) => (stop.dayNumber ?? 1) === selectedDay)
+          ?.dayDate ?? null);
   const filteredAirportTransfers =
     selectedDay === "all"
       ? airportTransfers
       : airportTransfers.filter(
           (transfer) =>
             transfer.date === selectedDayDate ||
-            (!selectedDayDate && selectedDay === 1 && transfer.date === trip.date),
+            (!selectedDayDate &&
+              selectedDay === 1 &&
+              transfer.date === trip.date),
         );
   const arrivalTransfers = filteredAirportTransfers.filter(
     (transfer) => transfer.role === "arrival",
@@ -156,7 +163,11 @@ export function TripView({
     .map((s) => s.dayDate)
     .filter((d): d is string => Boolean(d));
   const allDates = Array.from(
-    new Set([trip.date, ...stopDates, ...airportTransfers.map((transfer) => transfer.date)]),
+    new Set([
+      trip.date,
+      ...stopDates,
+      ...airportTransfers.map((transfer) => transfer.date),
+    ]),
   )
     .filter(Boolean)
     .sort();
@@ -268,7 +279,7 @@ export function TripView({
     setRouteStatus("started");
     captureMichiEvent("route_started", {
       tripId: trip.id,
-              context: { stopCount: regularStops.length },
+      context: { stopCount: regularStops.length },
     });
   }
 
@@ -417,7 +428,9 @@ export function TripView({
         </div>
       )}
 
-      {(regularStops.length > 0 || airportTransfers.length > 0 || legacyAirportStops.length > 0) && (
+      {(regularStops.length > 0 ||
+        airportTransfers.length > 0 ||
+        legacyAirportStops.length > 0) && (
         <div className="trip-toolbar">
           {editable && (
             <button
@@ -438,7 +451,9 @@ export function TripView({
               {t.tripBtnRecalculate}
             </button>
           )}
-          <p className="trip-share-pending" role="status">{t.tripShareUnavailable}</p>
+          <p className="trip-share-pending" role="status">
+            {t.tripShareUnavailable}
+          </p>
           <button
             className="button button-secondary"
             type="button"
@@ -466,7 +481,9 @@ export function TripView({
               type="button"
               onClick={openNaverWalkingRoute}
             >
-              {lang === "ko" ? "네이버 지도에서 도보 길찾기" : "NAVERマップで徒歩ルート"}
+              {lang === "ko"
+                ? "네이버 지도에서 도보 길찾기"
+                : "NAVERマップで徒歩ルート"}
             </button>
           )}
           {editable && routeStatus === "idle" && (
@@ -515,7 +532,9 @@ export function TripView({
         </div>
       )}
 
-      {regularStops.length === 0 && airportTransfers.length === 0 && legacyAirportStops.length === 0 ? (
+      {regularStops.length === 0 &&
+      airportTransfers.length === 0 &&
+      legacyAirportStops.length === 0 ? (
         <div className="empty-state">
           <h2>{t.tripEmptyTitle}</h2>
           <p>{t.tripEmptyDesc}</p>
@@ -573,7 +592,10 @@ export function TripView({
             </div>
 
             {arrivalTransfers.map((transfer) => (
-              <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
+              <AirportTransferCard
+                key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`}
+                transfer={transfer}
+              />
             ))}
             {legacyAirportStops.length > 0 && airportTransfers.length === 0 && (
               <p className="legacy-airport-notice" role="status">
@@ -735,13 +757,46 @@ export function TripView({
                         onFocusCard={() => setActiveStopId(stop.id)}
                         navigation={
                           filteredStops.length > 1 ? (
-                            <nav className="place-carousel-controls" aria-label={lang === "ko" ? "장소 설명 이동" : "スポット説明の移動"}>
-                              <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(filteredStops[index - 1]?.id ?? stop.id); }} disabled={index === 0}>
-                                {lang === "ko" ? "← 이전 장소" : "← 前のスポット"}
+                            <nav
+                              className="place-carousel-controls"
+                              aria-label={
+                                lang === "ko"
+                                  ? "장소 설명 이동"
+                                  : "スポット説明の移動"
+                              }
+                            >
+                              <button
+                                className="button button-secondary button-small"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setActiveStopId(
+                                    filteredStops[index - 1]?.id ?? stop.id,
+                                  );
+                                }}
+                                disabled={index === 0}
+                              >
+                                {lang === "ko"
+                                  ? "← 이전 장소"
+                                  : "← 前のスポット"}
                               </button>
-                              <span aria-live="polite">{index + 1} / {filteredStops.length}</span>
-                              <button className="button button-secondary button-small" type="button" onClick={(event) => { event.stopPropagation(); setActiveStopId(filteredStops[index + 1]?.id ?? stop.id); }} disabled={index === filteredStops.length - 1}>
-                                {lang === "ko" ? "다음 장소 →" : "次のスポット →"}
+                              <span aria-live="polite">
+                                {index + 1} / {filteredStops.length}
+                              </span>
+                              <button
+                                className="button button-secondary button-small"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setActiveStopId(
+                                    filteredStops[index + 1]?.id ?? stop.id,
+                                  );
+                                }}
+                                disabled={index === filteredStops.length - 1}
+                              >
+                                {lang === "ko"
+                                  ? "다음 장소 →"
+                                  : "次のスポット →"}
                               </button>
                             </nav>
                           ) : null
@@ -794,7 +849,10 @@ export function TripView({
               })}
             </ol>
             {departureTransfers.map((transfer) => (
-              <AirportTransferCard key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`} transfer={transfer} />
+              <AirportTransferCard
+                key={`${transfer.role}-${transfer.date}-${transfer.airport.code}`}
+                transfer={transfer}
+              />
             ))}
           </div>
         </div>

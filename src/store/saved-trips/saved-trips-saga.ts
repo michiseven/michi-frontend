@@ -5,6 +5,7 @@ import {
   updateUserSavedTripMemo,
 } from "@/lib/api";
 import type { UserSavedTrip } from "@/lib/types";
+import { captureMichiEvent } from "@/lib/telemetry";
 import { savedTripsActions } from "./saved-trips-slice";
 
 function errorText(error: unknown, fallback: string): string {
@@ -33,6 +34,9 @@ function* deleteSavedTrip(
 ) {
   try {
     yield call(deleteUserSavedTrip, action.payload);
+    yield call(captureMichiEvent, "saved_trip_deleted", {
+      context: { savedTripId: action.payload },
+    });
     yield put(savedTripsActions.deleted(action.payload));
   } catch (error) {
     yield put(

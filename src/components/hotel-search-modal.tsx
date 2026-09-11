@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import type { SearchHotelItem } from "@/lib/types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { hotelSearchActions } from "@/store/hotel-search/hotel-search-slice";
+import { captureMichiEvent } from "@/lib/telemetry";
 import { NaverMap, type MapStop } from "./naver-map";
 
 interface HotelSearchModalProps {
@@ -148,6 +149,7 @@ export function HotelSearchModal({
     const idx = parseInt(stopId.replace("hotel-", ""), 10);
     if (!Number.isNaN(idx) && displayedHotels[idx]) {
       setActiveHotelId(stopId);
+      captureMichiEvent("hotel_selected", { context: { resultIndex: idx } });
       onSelect(displayedHotels[idx]);
       onClose();
     }

@@ -1,6 +1,7 @@
 import { call, put, takeLatest } from "redux-saga/effects";
 import { loginUser, registerUser } from "@/lib/api";
 import { setAuthSession } from "@/lib/auth";
+import { captureMichiEvent } from "@/lib/telemetry";
 import type { AuthResponse } from "@/lib/types";
 import { authActions, type AuthSubmission } from "./auth-slice";
 
@@ -14,6 +15,9 @@ function* submitAuth(
         ? yield call(loginUser, request.input)
         : yield call(registerUser, request.input);
     yield call(setAuthSession, response);
+    yield call(captureMichiEvent, "account_authenticated", {
+      context: { mode: request.mode },
+    });
     yield put(
       authActions.submissionSucceeded({ redirectTo: request.redirectTo }),
     );
