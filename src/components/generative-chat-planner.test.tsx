@@ -30,6 +30,23 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 describe("GenerativeChatPlanner", () => {
+  it("renders a failed dinner request once with an accessible explanation and recovery", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    const explanation = "지정한 조건을 함께 만족하는 검증 가능한 경로가 없습니다. 지역이나 이동 조건을 조정해 주세요.";
+    apiMocks.sendChatMessage.mockResolvedValue({
+      threadId: "thread-1", status: "failed", errorCode: "ROUTE_CONSTRAINTS_VIOLATED",
+      responseMessage: explanation, actionChips: [{ label: "조건을 직접 수정하기", query: "조건을 바꿔줘", type: "manual_edit" }],
+    });
+    resetLanguage("ko");
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "홍대에서 13~18시 카페와 양식 저녁" } });
+    fireEvent.click(screen.getByRole("button", { name: "전송" }));
+    await screen.findByRole("alert");
+    expect(screen.getAllByText(explanation)).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("일정을 만들지 못했어요");
+    expect(screen.getByRole("button", { name: "조건을 직접 수정하기" })).toBeEnabled();
+    expect(screen.queryByText("ROUTE_CONSTRAINTS_VIOLATED")).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     store.dispatch(plannerActions.reset());

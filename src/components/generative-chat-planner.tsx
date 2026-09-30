@@ -589,6 +589,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
           <MessageList className="chat-messages-scroll">
             {messages.map((message) => {
               const isUser = message.role === "user";
+              const isFailure = !isUser && message.status === "failed";
               // The welcome message belongs to the current UI locale even after the
               // conversation starts. Keeping its initial string mixed Korean and
               // Japanese in the same chat after a language switch.
@@ -596,7 +597,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                 message.id === "welcome-message" ? t.plannerWelcome
                   : !isUser && message.resultTrip && isTripDraft(message.resultTrip)
                     ? (lang === "ko" ? "관광 일정 초안을 만들었어요. 공항·짐·안전 등 미확인 필수 조건은 아래에서 확인해 주세요. 전체 일정은 아직 완성되지 않았습니다." : "観光日程の下書きを作りました。空港・荷物・安全など未確認の必須条件を下で確認してください。全体の日程はまだ完成していません。")
-                    : message.content;
+                    : message.content || (isFailure ? (lang === "ko" ? "일정 생성에 실패했습니다. 조건을 확인하고 다시 시도해 주세요." : "旅程の作成に失敗しました。条件を確認して再試行してください。") : "");
               const webEvidence = message.verifiedPlaceFacts?.webEvidence;
               const webSources = webEvidence
                 ? [
@@ -621,21 +622,23 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                   {/* Message Bubble */}
                   {displayContent && (
                     <div
+                      role={isFailure ? "alert" : undefined}
                       style={{
                         maxWidth: "88%",
                         padding: "12px 16px",
                         borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                        backgroundColor: isUser ? "#2563eb" : "#ffffff",
-                        color: isUser ? "#ffffff" : "#1e293b",
+                        backgroundColor: isUser ? "#2563eb" : isFailure ? "#fff7ed" : "#ffffff",
+                        color: isUser ? "#ffffff" : isFailure ? "#9a3412" : "#1e293b",
                         fontSize: "0.92rem",
                         lineHeight: 1.55,
                         whiteSpace: "pre-wrap",
-                        border: isUser ? "none" : "1px solid #e2e8f0",
+                        border: isUser ? "none" : isFailure ? "1px solid #fed7aa" : "1px solid #e2e8f0",
                         boxShadow: isUser
                           ? "0 4px 12px rgba(37, 99, 235, 0.2)"
                           : "0 2px 6px rgba(0, 0, 0, 0.04)",
                       }}
                     >
+                      {isFailure && <div style={{ fontWeight: 700, marginBottom: "4px" }}>{lang === "ko" ? "일정을 만들지 못했어요" : "旅程を作成できませんでした"}</div>}
                       {displayContent}
                     </div>
                   )}
@@ -971,22 +974,6 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                     </div>
                   )}
 
-                  {message.errorCode && message.status === "failed" && (
-                    <div
-                      style={{
-                        marginTop: "8px",
-                        padding: "10px 14px",
-                        borderRadius: "10px",
-                        backgroundColor: "#fef2f2",
-                        color: "#991b1b",
-                        fontSize: "0.85rem",
-                        border: "1px solid #fecaca",
-                        maxWidth: "88%",
-                      }}
-                    >
-                      ⚠️ {message.content || "오류가 발생했습니다."}
-                    </div>
-                  )}
                 </div>
               );
             })}
