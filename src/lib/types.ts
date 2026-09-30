@@ -372,7 +372,32 @@ export interface Trip {
   startArea?: string;
   startTime: string;
   endTime: string;
-  status?: "ready" | "modified";
+  status?: "ready" | "modified" | "partial";
+  budgetInput?: { amountKrw: number; scope: "total" | "per_person" };
+  explicitRequestContract?: {
+    startDate?: string;
+    partySize?: number;
+    budget?: { amountKrw: number; scope: "total" | "per_person" };
+    airport?: {
+      role: "arrival" | "departure" | "unknown";
+      name: "ICN" | "GMP" | "unspecified";
+      terminal: "T1" | "T2" | null;
+      deadline: string | null;
+      arrivalDeadline?: string | null;
+      flightTime?: string | null;
+      sourceRequest: string;
+    };
+    luggage?: { requested: true; storageRequired: boolean; recoveryRequired?: boolean; sourceRequest: string };
+    hotel?: { checkoutTime: string | null; sourceRequest: string };
+  };
+  contractAssessment?: {
+    status: "satisfied" | "partial";
+    unavailable: Array<{
+      code: "airport_terminal" | "airport_transfer" | "luggage_storage";
+      status: "evidence_unavailable";
+      sourceRequest: string;
+    }>;
+  };
   budget?: number | null;
   estimatedTotalCost?: number | null;
   explanation?: TripExplanation | null;

@@ -6,6 +6,7 @@ import {
   cancelChatRun,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { isTripDraft } from "@/lib/trip-contract";
 import type {
   ActionChip,
   PendingTripMutation,
@@ -89,7 +90,7 @@ function generateMessageId(prefix: string): string {
 }
 
 export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginCompletedAt, loginCancelledAt, initialIntent }: GenerativeChatPlannerProps) {
-  const { lang, t, quickPrompts } = useI18n();
+  const { lang, t, quickPrompts, setLang } = useI18n();
   const user = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingMessageAfterLoginRef = useRef<string | null>(null);
@@ -196,6 +197,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       optionId: string;
       expectedRevision?: number;
     },
+    displayMessage?: string,
   ): void {
     if (!textToSend.trim() || isLoading) return;
     if (!user) {
@@ -205,6 +207,9 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
     }
 
     const requestId = generateMessageId("user");
+    const requestedLocale = /한국어(?:로|\s*답)|韓国語で|in\s+Korean/iu.test(textToSend) ? "ko"
+      : /일본어(?:로|\s*답)|日本語で|in\s+Japanese/iu.test(textToSend) ? "ja" : lang;
+    if (requestedLocale !== lang) setLang(requestedLocale);
     setInput("");
     setInputOrigin("direct");
     const scheduleProfile = {
@@ -217,9 +222,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
       };
     dispatch(plannerActions.sendRequested({
       message: makeRequestMessage(textToSend),
-      displayMessage: textToSend,
+      sourceMessage: textToSend,
+      displayMessage: displayMessage ?? textToSend,
       requestId,
-      locale: lang,
+      locale: requestedLocale,
       currentTripId: activeTrip?.id,
       profile: {
           hotel: profile.hotel,
@@ -587,7 +593,10 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
               // conversation starts. Keeping its initial string mixed Korean and
               // Japanese in the same chat after a language switch.
               const displayContent =
-                message.id === "welcome-message" ? t.plannerWelcome : message.content;
+                message.id === "welcome-message" ? t.plannerWelcome
+                  : !isUser && message.resultTrip && isTripDraft(message.resultTrip)
+                    ? (lang === "ko" ? "관광 일정 초안을 만들었어요. 공항·짐·안전 등 미확인 필수 조건은 아래에서 확인해 주세요. 전체 일정은 아직 완성되지 않았습니다." : "観光日程の下書きを作りました。空港・荷物・安全など未確認の必須条件を下で確認してください。全体の日程はまだ完成していません。")
+                    : message.content;
               const webEvidence = message.verifiedPlaceFacts?.webEvidence;
               const webSources = webEvidence
                 ? [
@@ -846,6 +855,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                         <span style={{ fontSize: "1.4rem" }}>🗺️</span>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
+                            {isTripDraft(message.resultTrip) && (lang === "ko" ? "[초안] " : "[下書き] ")}
                             {message.resultTrip.title ||
                               (lang === "ko" ? "추천 맞춤 여행 동선" : "おすすめルート")}
                           </div>
@@ -917,7 +927,8 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                                 ? recoveryId
                                 : null;
                             const relaxations = chip.requestPatch?.relaxations ?? (recoveryRelaxation ? [recoveryRelaxation] : []);
-                            const retryMessage = [...messages].reverse().find((candidate) => candidate.role === "user")?.content;
+                            const previousRequest = [...messages].reverse().find((candidate) => candidate.role === "user");
+                            const retryMessage = previousRequest?.requestMessage ?? previousRequest?.content;
                             void sendMessage(
                               relaxations.length > 0 || chip.mealPreference || chip.mealCuisine
                                 ? (lastRetry?.message ?? retryMessage ?? chip.query)
@@ -935,6 +946,7 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                                     expectedRevision: message.pendingQuestion?.revision,
                                   }
                                 : undefined,
+                              chip.label,
                             );
                           }}
                           style={{

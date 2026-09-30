@@ -31,6 +31,8 @@ export interface PlannerMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Original request context stays separate from a selected answer's visible label. */
+  requestMessage?: string;
   actionChips?: ActionChip[];
   status?: "completed" | "awaiting_confirmation" | "rejected" | "failed";
   pendingAction?: PendingTripMutation | null;
@@ -43,6 +45,8 @@ export interface PlannerMessage {
 
 export interface PlannerRequest {
   message: string;
+  /** Request before optional profile context is appended; used for later answer chips. */
+  sourceMessage?: string;
   /** Human-visible message. Context appended for the API must not be echoed back into the chat. */
   displayMessage: string;
   requestId: string;
@@ -105,7 +109,7 @@ const plannerSlice = createSlice({
       state.isLoading = action.payload;
     },
     sendRequested(state, action: PayloadAction<PlannerRequest>) {
-      state.messages.push({ id: action.payload.requestId, role: "user", content: action.payload.displayMessage });
+      state.messages.push({ id: action.payload.requestId, role: "user", content: action.payload.displayMessage, requestMessage: action.payload.sourceMessage ?? action.payload.message });
       state.isLoading = true;
       state.loadingStage = "checking";
       state.lastRetry = null;

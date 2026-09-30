@@ -10,6 +10,7 @@ import { PlaceCard } from "./place-card";
 import { NaverMap } from "./naver-map";
 import { SafetyConstraintSummary } from "./safety-constraint-summary";
 import { AirportTransferCard } from "./airport-transfer-card";
+import { TripConstraintSummary } from "./trip-constraint-summary";
 
 interface GenerativeTripWidgetProps {
   trip: Trip;
@@ -94,6 +95,7 @@ export function GenerativeTripWidget({ trip: initialTrip, className, style }: Ge
       <div className="generative-trip-details">
         <div style={{ padding: "12px 16px 0" }}>
           <SafetyConstraintSummary trip={trip} compact />
+          <TripConstraintSummary trip={trip} />
         </div>
 
         {/* Stops Timeline List */}

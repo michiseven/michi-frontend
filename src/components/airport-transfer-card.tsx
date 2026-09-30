@@ -85,8 +85,12 @@ export function AirportTransferCard({ transfer }: AirportTransferCardProps) {
       {!isArrival && transfer.bufferMinutes != null && (
         <p className="airport-transfer-buffer">
           {lang === "ko"
-            ? `공항 도착 뒤 체크인·보안검색 여유 ${transfer.bufferMinutes}분을 확보했어요.`
-            : `空港到着後、チェックイン・保安検査の余裕を${transfer.bufferMinutes}分確保しています。`}
+            ? route.status === "verified"
+              ? `공항 도착 뒤 체크인·보안검색 여유 ${transfer.bufferMinutes}분을 반영했어요.`
+              : `체크인·보안검색 여유 목표 ${transfer.bufferMinutes}분 — 공항 도착 및 실제 확보 여부는 미확인입니다.`
+            : route.status === "verified"
+              ? `空港到着後、チェックイン・保安検査の余裕${transfer.bufferMinutes}分を反映しています。`
+              : `チェックイン・保安検査の余裕目標${transfer.bufferMinutes}分 — 空港到着と実際の確保は未確認です。`}
         </p>
       )}
 

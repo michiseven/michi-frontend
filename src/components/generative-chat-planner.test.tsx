@@ -5,6 +5,7 @@ import { I18nProvider, resetLanguage } from "@/lib/i18n";
 import { GenerativeChatPlanner } from "./generative-chat-planner";
 import { store } from "@/store/store";
 import { plannerActions } from "@/store/planner/planner-slice";
+import { testTrip } from "@/test/fixtures";
 
 function render(ui: React.ReactNode) {
   return baseRender(<Provider store={store}>{ui}</Provider>);
@@ -54,6 +55,30 @@ describe("GenerativeChatPlanner", () => {
     expect(screen.getByRole("button", { name: /도착·출발 일정|到着・出発日程/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /荷物なし|荷物預かり必要|짐 보관 없음|짐 보관 필요/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /숙소 검색|宿泊先検索/ })).toBeInTheDocument();
+  });
+
+  it.each([[
+    "한국어로 답해 주세요. 홍대 점심을 추천해줘", "ko",
+  ], ["日本語で答えてください。弘大で昼食", "ja"]] as const)("sends the requested response language for %s", async (request, locale) => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockResolvedValue({ threadId: "thread-1", status: "completed", responseMessage: "language checked" });
+    resetLanguage(locale === "ja" ? "ko" : "ja");
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: request } });
+    fireEvent.click(screen.getByRole("button", { name: /送信|전송/ }));
+    await screen.findByText("language checked");
+    expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith("thread-1", expect.objectContaining({ locale, message: request }));
+  });
+
+  it("does not show a completion claim for an unresolved departure itinerary", async () => {
+    apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
+    apiMocks.sendChatMessage.mockResolvedValue({ threadId: "thread-1", status: "completed", responseMessage: "일정이 완성됐습니다.", resultTrip: { ...testTrip, status: "partial", contractAssessment: { status: "partial", unavailable: [] } } });
+    resetLanguage("ko");
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "공항 이동 포함해서 짜줘" } });
+    fireEvent.click(screen.getByRole("button", { name: /보내기|전송/ }));
+    await screen.findByText(/공항·짐·안전 등 미확인 필수 조건/);
+    expect(screen.queryByText("일정이 완성됐습니다.")).not.toBeInTheDocument();
   });
 
   it("shows an input-adjacent minimum request format and situational examples", () => {
@@ -243,6 +268,7 @@ describe("GenerativeChatPlanner", () => {
     fireEvent.click(await screen.findByRole("button", { name: "한식" }));
 
     await screen.findByText("일정을 만들었어요.");
+    expect(store.getState().planner.messages.filter((item) => item.role === "user").map((item) => item.content)).toEqual([original, "한식"]);
     expect(apiMocks.sendChatMessage).toHaveBeenLastCalledWith(
       "thread-1",
       expect.objectContaining({

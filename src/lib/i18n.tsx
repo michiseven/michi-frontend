@@ -238,7 +238,7 @@ export const DICTIONARY = {
 
     // Place Card
     placeCategoryFallback: "カテゴリ未提供",
-    placeTagLocal: "路地裏ローカル店舗",
+    placeTagLocal: "地域発見データあり",
     placeTagAnchor: "固定目的地",
     placeReasonHeading: "おすすめの理由",
     placeShortDescriptionHeading: "スポット紹介",
@@ -581,7 +581,7 @@ export const DICTIONARY = {
 
     // Place Card
     placeCategoryFallback: "카테고리 정보 없음",
-    placeTagLocal: "골목 상권 로컬 매장",
+    placeTagLocal: "지역 발견 데이터 있음",
     placeTagAnchor: "고정 목적지",
     placeReasonHeading: "추천 이유",
     placeShortDescriptionHeading: "장소 소개",

@@ -42,6 +42,28 @@ describe("trip detail editing", () => {
     expect(screen.queryByRole("heading", { name: "テストカフェ" })).not.toBeInTheDocument();
   });
 
+  it("shows the requested budget in the header even when costs are unknown", () => {
+    resetLanguage("ko");
+    render(<I18nProvider><TripView initialTrip={{ ...testTrip, estimatedTotalCost: null, budgetInput: { amountKrw: 80000, scope: "per_person" } }} /></I18nProvider>);
+    expect(screen.getByText(/1인 80,000원 · 비용 미확인/)).toBeInTheDocument();
+    expect(screen.queryByText(/예산 미지정/)).not.toBeInTheDocument();
+  });
+
+  it("does not present a parser default as a user-provided budget in new responses", () => {
+    resetLanguage("ko");
+    render(<I18nProvider><TripView initialTrip={{ ...testTrip, estimatedTotalCost: null, explicitRequestContract: {}, budget: 80000, totalBudgetKrw: 80000 }} /></I18nProvider>);
+    expect(screen.getByText(/예산 미지정 · 비용 미확인/)).toBeInTheDocument();
+    expect(screen.queryByText(/전체 80,000원/)).not.toBeInTheDocument();
+  });
+
+  it("does not call a park a local alley shop based on its discovery score", () => {
+    resetLanguage("ko");
+    const park = { ...testTrip.stops[0]!, category: "nature", placeName: "서울숲", scoreBreakdown: { ...testTrip.stops[0]!.scoreBreakdown, localImpact: 0.9 } };
+    render(<I18nProvider><TripView initialTrip={{ ...testTrip, stops: [park] }} /></I18nProvider>);
+    expect(screen.getByText(/지역 발견 데이터 있음/)).toBeInTheDocument();
+    expect(screen.queryByText(/골목 상권 로컬 매장/)).not.toBeInTheDocument();
+  });
+
   it("returns to the previous place without changing the itinerary order", async () => {
     const user = userEvent.setup();
     render(<TripView initialTrip={testTrip} editable />);

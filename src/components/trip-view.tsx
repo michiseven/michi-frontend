@@ -17,6 +17,7 @@ import { PlaceCard } from "./place-card";
 import { ProviderStatus } from "./provider-status";
 import { SafetyConstraintSummary } from "./safety-constraint-summary";
 import { TripConstraintSummary } from "./trip-constraint-summary";
+import { formatTripBudget, isTripDraft } from "@/lib/trip-contract";
 import { BookmarkIcon, CheckIcon, RefreshIcon } from "./icons";
 
 interface TripViewProps {
@@ -321,7 +322,7 @@ export function TripView({
     <section className="trip-shell" aria-labelledby="trip-title">
       <header className="trip-header">
         <div className="trip-header-main">
-          <p className="trip-eyebrow">ITINERARY</p>
+          <p className="trip-eyebrow">{isTripDraft(trip) ? (lang === "ko" ? "관광 일정 초안" : "観光日程の下書き") : "ITINERARY"}</p>
           <h1 id="trip-title">
             {trip.title ||
               (lang === "ko" ? "서울 하루 여행 일정" : "ソウル一日旅プラン")}
@@ -331,9 +332,10 @@ export function TripView({
             <span>📍 {trip.preference?.area || t.tripMetaAreaSeoul}</span>
             <span>
               💰{" "}
-              {trip.estimatedTotalCost
-                ? `${currency.format(trip.estimatedTotalCost)}원`
-                : t.tripMetaBudgetUnspecified}
+              {formatTripBudget(trip, lang) ?? t.tripMetaBudgetUnspecified}
+              {trip.estimatedTotalCost != null
+                ? ` · ${lang === "ko" ? "추정 비용" : "推定費用"} ${currency.format(trip.estimatedTotalCost)}${lang === "ko" ? "원" : "ウォン"}`
+                : ` · ${lang === "ko" ? "비용 미확인" : "費用未確認"}`}
             </span>
             {dispersionScores.length > 0 && (
               <span>🌿 {t.tripMetaDispersion(avgDispersion)}</span>
