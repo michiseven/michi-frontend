@@ -439,6 +439,8 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 
 .language-switcher {
   display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
@@ -450,6 +452,7 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
 }
 
 .lang-btn {
+  white-space: nowrap;
   border: none;
   background: transparent;
   padding: 2px 4px;
@@ -622,6 +625,12 @@ h3 { margin: 0; font-size: 18px; line-height: 1.35; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .user-display-name { display: none; }
+  .user-avatar-btn { padding-inline: 8px; }
+  .user-menu-wrapper { flex-shrink: 0; }
 }
 
 .user-dropdown-menu {

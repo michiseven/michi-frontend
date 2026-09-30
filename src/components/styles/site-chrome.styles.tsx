@@ -58,8 +58,10 @@ export const BrandMark = styled.span`
 
 export const HeaderActions = styled.div`
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 12px;
+  @media (max-width: 520px) { gap: 8px; }
 `;
 
 export const CityLabel = styled.span`
@@ -70,6 +72,8 @@ export const CityLabel = styled.span`
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+  @media (max-width: 520px) { display: none; }
 `;
 
 export const Footer = styled.footer`

@@ -95,4 +95,13 @@ describe("UserMenu", () => {
       screen.getByRole("button", { name: "최성현 사용자 메뉴" }),
     ).toBeInTheDocument();
   });
+
+  it("keeps the full long nickname in the accessible menu name when the visual label is hidden on mobile", () => {
+    resetLanguage("ko");
+    const displayName = "서울 여행을 준비하는 아주 긴 사용자 이름";
+    vi.spyOn(auth, "useAuth").mockReturnValue({ id: "u-1", displayName, email: "choe@example.com", locale: "ko", createdAt: "2026-08-27T00:00:00.000Z" });
+    renderMenu();
+    expect(screen.getByRole("button", { name: `${displayName} 사용자 메뉴` })).toBeInTheDocument();
+    expect(screen.getByText(displayName)).toHaveClass("user-display-name");
+  });
 });
