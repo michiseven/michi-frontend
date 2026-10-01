@@ -72,9 +72,13 @@ function* sendPlannerMessage(action: ReturnType<typeof plannerActions.sendReques
       verifiedPlaceFacts: response.verifiedPlaceFacts, resultTrip: trip, errorCode: response.errorCode,
     }));
   } catch {
-    const cancelled = request.locale === "ko" ? "일정 생성을 취소했어요. 요청을 고쳐서 다시 보낼 수 있어요." : "旅程作成をキャンセルしました。内容を直してもう一度送れます。";
+    // HTTP/network failures are not evidence that the user cancelled the request.
+    const cancelled = abortController.signal.aborted;
+    const content = cancelled
+      ? (request.locale === "ko" ? "일정 생성을 취소했어요. 요청을 고쳐서 다시 보낼 수 있어요." : "旅程作成をキャンセルしました。内容を直してもう一度送れます。")
+      : (request.locale === "ko" ? "요청 처리 결과를 확인하지 못했어요. 잠시 후 다시 시도해 주세요." : "リクエストの処理結果を確認できませんでした。しばらくしてからもう一度お試しください。");
     yield put(plannerActions.requestFailed({
-      message: { id: messageId("error"), role: "assistant", content: cancelled },
+      message: { id: messageId("error"), role: "assistant", content, ...(cancelled ? {} : { status: "failed" as const }) },
       retry: { message: request.displayMessage, startFreshTrip: Boolean(request.startFreshTrip) },
     }));
   } finally {

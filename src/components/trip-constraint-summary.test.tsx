@@ -5,6 +5,14 @@ import { testTrip } from "@/test/fixtures";
 import { TripConstraintSummary } from "./trip-constraint-summary";
 
 describe("TripConstraintSummary", () => {
+  it.each(["ko", "ja"] as const)("keeps sightseeing, airport arrival and flight clocks separate in %s", (locale) => {
+    resetLanguage(locale);
+    render(<I18nProvider><TripConstraintSummary trip={{ ...testTrip, startTime: "11:00", endTime: "16:00", status: "partial", explicitRequestContract: {
+      airport: { role: "departure", name: "ICN", terminal: "T1", deadline: "18:00", flightTime: "20:30", sourceRequest: "관광16시 종료 공항18시 비행20:30" },
+    } }} /></I18nProvider>);
+    expect(screen.getByText(locale === "ko" ? /11:00–16:00 관광 일정/ : /11:00〜16:00の観光日程/)).toBeInTheDocument();
+    expect(screen.getByText(locale === "ko" ? /18:00 공항 도착 마감.*20:30 비행 출발/ : /18:00 空港到着期限.*20:30 フライト出発/)).toBeInTheDocument();
+  });
   it("renders airport deadlines and luggage as unresolved draft conditions, not fulfilled time", () => {
     resetLanguage("ko");
     render(<I18nProvider><TripConstraintSummary trip={{ ...testTrip, status: "partial", explicitRequestContract: {
