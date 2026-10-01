@@ -69,6 +69,7 @@ function* sendPlannerMessage(action: ReturnType<typeof plannerActions.sendReques
       id: messageId("assistant"), role: "assistant", content: response.responseMessage,
       actionChips: response.actionChips, status: response.status, pendingAction: response.pendingAction,
       pendingQuestion: response.pendingQuestion, alternatives: response.alternatives,
+      pendingSourceId: planner.messages.findLast(message => message.pendingAction)?.id,
       verifiedPlaceFacts: response.verifiedPlaceFacts, resultTrip: trip, errorCode: response.errorCode,
     }));
   } catch {
@@ -120,6 +121,7 @@ function* resumePlannerMessage(action: ReturnType<typeof plannerActions.resumeRe
       id: messageId("assistant"), role: "assistant", content: response.responseMessage,
       actionChips: response.actionChips, status: response.status, pendingAction: response.pendingAction,
       pendingQuestion: response.pendingQuestion, alternatives: response.alternatives,
+      pendingSourceId: planner.messages.findLast(message => message.pendingAction)?.id,
       verifiedPlaceFacts: response.verifiedPlaceFacts, resultTrip: trip, errorCode: response.errorCode,
     }));
   } catch {

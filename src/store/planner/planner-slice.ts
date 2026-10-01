@@ -36,6 +36,8 @@ export interface PlannerMessage {
   actionChips?: ActionChip[];
   status?: "completed" | "awaiting_confirmation" | "rejected" | "failed";
   pendingAction?: PendingTripMutation | null;
+  /** Local checkpoint owner at request start; prevents late replies reviving controls. */
+  pendingSourceId?: string;
   pendingQuestion?: PendingChatQuestion | null;
   alternatives?: ReplacementCandidate[];
   verifiedPlaceFacts?: VerifiedPlaceFacts | null;
@@ -119,9 +121,24 @@ const plannerSlice = createSlice({
       state.threadSecret = action.payload.threadSecret;
     },
     responseReceived(state, action: PayloadAction<PlannerMessage>) {
-      state.messages.push(action.payload);
-      if (action.payload.alternatives?.[0]) state.selectedAlternativeId = action.payload.alternatives[0].placeId;
-      if (action.payload.resultTrip) state.activeTrip = action.payload.resultTrip;
+      if (state.messages.some(message => message.id === action.payload.id)) return;
+      const staleCheckpoint = Boolean(action.payload.pendingSourceId &&
+        !state.messages.some(message => message.id === action.payload.pendingSourceId && message.pendingAction));
+      const response = staleCheckpoint ? { ...action.payload, pendingAction: null } : action.payload;
+      const pending = response.status === "awaiting_confirmation" ? response.pendingAction : null;
+      const resolved = action.payload.status === "completed" || action.payload.status === "rejected";
+      if (pending || (resolved && !staleCheckpoint)) {
+        // History is readable, but only the latest server checkpoint owns controls.
+        for (const message of state.messages) message.pendingAction = null;
+      }
+      if (pending) {
+        if (!pending.alternatives.some((candidate) => candidate.placeId === state.selectedAlternativeId)) {
+          state.selectedAlternativeId = pending.alternatives[0]?.placeId ?? null;
+        }
+      } else if (resolved && !staleCheckpoint) state.selectedAlternativeId = null;
+      state.messages.push(response);
+      if (!staleCheckpoint && !pending && !resolved && action.payload.alternatives?.[0]) state.selectedAlternativeId = action.payload.alternatives[0].placeId;
+      if (!staleCheckpoint && action.payload.resultTrip) state.activeTrip = action.payload.resultTrip;
       state.isLoading = false;
     },
     requestFailed(

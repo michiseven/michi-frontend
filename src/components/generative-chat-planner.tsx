@@ -731,10 +731,16 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                           {message.pendingAction.alternatives.map((alt) => {
                             const isSelected = (selectedAlternativeId || message.pendingAction!.alternatives[0].placeId) === alt.placeId;
                             return (
-                              <div
+                              <button
                                 key={alt.placeId}
+                                type="button"
+                                aria-pressed={isSelected}
+                                disabled={isLoading}
                                 onClick={() => dispatch(plannerActions.alternativeSelected(alt.placeId))}
                                 style={{
+                                  width: "100%",
+                                  textAlign: "left",
+                                  fontFamily: "inherit",
                                   padding: "10px 12px",
                                   borderRadius: "10px",
                                   border: isSelected ? "2px solid #2563eb" : "1px solid #e2e8f0",
@@ -749,16 +755,14 @@ export function GenerativeChatPlanner({ onTripGenerated, onLoginRequired, loginC
                                   </span>
                                   {alt.distanceMeters != null && (
                                     <span style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600 }}>
-                                      📍 {lang === "ko"
-                                        ? `도보 약 ${Math.max(1, Math.round(alt.distanceMeters / 70))}분`
-                                        : `徒歩 約${Math.max(1, Math.round(alt.distanceMeters / 70))}分`}
+                                      {lang === "ko" ? "직선거리" : "直線距離"} {Math.round(alt.distanceMeters)}m
                                     </span>
                                   )}
                                 </div>
                                 <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: "4px", lineHeight: 1.4 }}>
                                   {alt.reason}
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>

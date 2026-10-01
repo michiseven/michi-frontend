@@ -841,8 +841,8 @@ export function PlaceCard({
                           <span style={{ color: "#2563eb", fontWeight: 500 }}>
                             📍{" "}
                             {lang === "ko"
-                              ? `도보 약 ${Math.max(1, Math.round(alt.distanceMeters / 70))}분 (${alt.distanceMeters}m)`
-                              : `徒歩約${Math.max(1, Math.round(alt.distanceMeters / 70))}分 (${alt.distanceMeters}m)`}
+                              ? `직선거리 ${Math.round(alt.distanceMeters)}m · 도보 시간 미확인`
+                              : `直線距離 ${Math.round(alt.distanceMeters)}m · 徒歩時間は未確認`}
                           </span>
                         )}
                       </div>
@@ -853,8 +853,8 @@ export function PlaceCard({
                           alt.description ||
                           alt.reason ||
                           (lang === "ko"
-                            ? `${localizePlaceName(alt.name, lang)}은(는) ${displayName} 인근${alt.distanceMeters ? `(도보 약 ${Math.max(1, Math.round(alt.distanceMeters / 70))}분)` : ""}에 위치한 ${localizeCategory(alt.category, lang)} 명소로, 일정의 흐름과 취향에 잘 어울리는 추천 대안입니다.`
-                            : `${localizePlaceName(alt.name, lang)}は${displayName}の近く${alt.distanceMeters ? `(徒歩約${Math.max(1, Math.round(alt.distanceMeters / 70))}分)` : ""}にある人気の${localizeCategory(alt.category, lang)}スポットで、現在の旅程と好みに適したおすすめの代替候補です。`);
+                            ? `${localizePlaceName(alt.name, lang)}은(는) ${displayName}의 대체 후보입니다. 실제 도보 경로·시간과 취향 적합성은 별도 확인이 필요합니다.`
+                            : `${localizePlaceName(alt.name, lang)}は${displayName}の代替候補です。実際の徒歩経路・時間と好みへの適合は別途確認が必要です。`);
 
                         return (
                           <div

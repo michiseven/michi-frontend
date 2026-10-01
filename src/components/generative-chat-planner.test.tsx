@@ -1,10 +1,10 @@
-import { fireEvent, render as baseRender, screen } from "@testing-library/react";
+import { act, fireEvent, render as baseRender, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider, resetLanguage } from "@/lib/i18n";
 import { GenerativeChatPlanner } from "./generative-chat-planner";
 import { store } from "@/store/store";
-import { plannerActions } from "@/store/planner/planner-slice";
+import { plannerActions, type PlannerMessage } from "@/store/planner/planner-slice";
 import { testTrip } from "@/test/fixtures";
 
 function render(ui: React.ReactNode) {
@@ -30,6 +30,23 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 describe("GenerativeChatPlanner", () => {
+  it.each(["ko", "ja"] as const)("keeps one keyboard-accessible card and truthful distance in %s", locale => {
+    resetLanguage(locale);
+    const pending: PlannerMessage = { id: "pending", role: "assistant", content: "choose", status: "awaiting_confirmation",
+      pendingAction: { type: "trip_mutation_confirmation", action: "replace", tripId: "trip",
+        targetStop: { stopId: "stop", placeId: "old", placeName: "Old" }, warnings: [],
+        alternatives: ["one", "two"].map(placeId => ({ placeId, name: placeId, category: "cafe", reason: "Walking time unknown", distanceMeters: 71, evidenceStatus: "verified_place", estimatedCost: null })) } };
+    store.dispatch(plannerActions.responseReceived(pending));
+    render(<I18nProvider><GenerativeChatPlanner /></I18nProvider>);
+    fireEvent.click(screen.getByRole("button", { name: /two/ }));
+    act(() => { store.dispatch(plannerActions.responseReceived({ ...pending, id: "qa", pendingSourceId: "pending", content: "evidence unknown" })); });
+    expect(screen.getAllByRole("button", { name: /교체 승인|選択スポットに変更/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /two/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText(locale === "ko" ? "직선거리 71m" : "直線距離 71m")).toHaveLength(2);
+    expect(screen.queryByText(/도보 약|徒歩 約/)).not.toBeInTheDocument();
+    act(() => { store.dispatch(plannerActions.responseReceived({ id: "rejected", role: "assistant", status: "rejected", content: "unchanged", pendingSourceId: "qa" })); });
+    expect(screen.queryByRole("button", { name: /교체 승인|選択スポットに変更/ })).not.toBeInTheDocument();
+  });
   it("renders a failed dinner request once with an accessible explanation and recovery", async () => {
     apiMocks.createChatThread.mockResolvedValue({ threadId: "thread-1", threadSecret: "secret-1" });
     const explanation = "지정한 조건을 함께 만족하는 검증 가능한 경로가 없습니다. 지역이나 이동 조건을 조정해 주세요.";
